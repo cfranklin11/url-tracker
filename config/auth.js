@@ -2,11 +2,11 @@
 
 var fs, env, envFile;
 
-  fs = require('fs'),
-  env = {},
+fs = require('fs');
+env = {};
 
 if (!process.env.client_email || !process.env.private_key) {
-  envFile = __dirname + 'env.json';
+  envFile = __dirname + '/env.json';
 }
 
 if (fs.existsSync(envFile)) {

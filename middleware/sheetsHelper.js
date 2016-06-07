@@ -16,16 +16,14 @@ sheetsHelper = {
 
     async.series([
       function setAuth(step) {
-        var creds, creds_json;
-        // see notes below for authentication instructions!
-        creds = require('./google-generated-creds.json');
-        // OR, if you cannot save the file locally (like on heroku)
+        var creds_json;
+
         creds_json = {
           client_email: auth.client_email,
           private_key: auth.private_key
         };
 
-        doc.useServiceAccountAuth(creds, step);
+        doc.useServiceAccountAuth(creds_json, step);
       },
       function getInfoAndWorksheets(step) {
           doc.getInfo(function(err, info) {
@@ -43,8 +41,9 @@ sheetsHelper = {
             orderby: 'col2'
           }, function( err, rows ){
             console.log('Read '+rows.length+' rows');
-            console.log(rows[0]);
-
+            rows[0].url = 'new url';
+            rows[0].status = 'new status';
+            rows[0].save(); // this is async
             next();
           });
         }

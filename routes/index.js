@@ -1,6 +1,6 @@
 'use strict';
 
-var express, router, crawler;
+var express, router, crawler, sheets;
 
 express = require('express');
 router = express.Router();
@@ -17,9 +17,9 @@ router.get('/crawl',
     res.json(req.pagesCrawled);
 });
 router.get('/sheet',
-  sheets,
+  sheets.start,
   function(req, res, next) {
-    res.render('index');
+    res.render('index', {title: 'sheets'});
 });
 
 module.exports = router;
