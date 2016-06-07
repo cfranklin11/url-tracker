@@ -26,7 +26,6 @@ crawler = {
       crawler.pagesToVisit.push(domainBaseUrl);
       crawler.continue(req, res, next);
     }
-    next();
   },
 
   continue: function(req, res, next) {
@@ -34,10 +33,12 @@ crawler = {
 
     thisPageToVisit = crawler.pagesToVisit.shift();
 
-    console.log(thisPageToVisit);
-
     if (thisPageToVisit) {
+      console.log(thisPageToVisit);
       crawler.requestPage(req, res, next, thisPageToVisit);
+    } else {
+      req.pagesCrawled = crawler.pages;
+      next();
     }
   },
 
