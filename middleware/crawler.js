@@ -1,10 +1,10 @@
 'use strict';
 
-var request, cheerio, URL, crawler;
+var request, cheerio, urlParse, crawler;
 
 request = require('request');
 cheerio = require('cheerio');
-URL = require('url-parse');
+urlParse = require('url-parse');
 
 crawler = {
   domains: ['https://www.beyondblue.org.au'],
@@ -13,35 +13,35 @@ crawler = {
 
   pagesToVisit: [],
 
-  start: function() {
-    var domains, i, thisDomain, domainUrl, domainBaseUrl, domainPath,
-      thisDomainUrl;
+  start: function(req, res, next) {
+    var domains, i, thisDomain, urlObj, domainBaseUrl;
 
     domains = crawler.domains;
 
     for (i = 0; i < domains.length; i++) {
       thisDomain = domains[i];
-      url = new URL(thisDomain);
-      domainBaseUrl = url.protocol + '//' + url.hostname;
+      urlObj = new urlParse(thisDomain);
+      domainBaseUrl = urlObj.protocol + '//' + urlObj.hostname;
 
       crawler.pagesToVisit.push(domainBaseUrl);
-      crawler.continue();
+      crawler.continue(req, res, next);
     }
-    console.log(crawler.pages);
     next();
   },
 
-  continue: function() {
+  continue: function(req, res, next) {
     var thisPageToVisit;
 
     thisPageToVisit = crawler.pagesToVisit.shift();
 
+    console.log(thisPageToVisit);
+
     if (thisPageToVisit) {
-      crawler.requestPage(thisPageToVisit);
+      crawler.requestPage(req, res, next, thisPageToVisit);
     }
   },
 
-  requestPage: function(domainUrl) {
+  requestPage: function(req, res, next, domainUrl) {
     var pageStatus, pageObj, pages;
 
     request(domainUrl, function(error, response, body) {
@@ -54,7 +54,7 @@ crawler = {
       pageObj = {
         url: domainUrl,
         status: pageStatus
-      }
+      };
       pages = crawler.pages;
 
       if (pages.indexOf(pageObj) === -1) {
@@ -62,13 +62,13 @@ crawler = {
       }
 
       if (pageStatus === 200) {
-        crawler.collectLinks(domainUrl);
+        crawler.collectLinks(domainUrl, body);
       }
     });
   },
 
-  collectLinks: function(domainUrl) {
-    var $, relativeLinks, absoluteLinks, domainLinks, i;
+  collectLinks: function(domainUrl, body) {
+    var $, relativeLinks, absoluteLinks, domainRegExp, linksArray, i, linkText, thisLink;
 
     $ = cheerio.load(body);
     relativeLinks = $('a[href^="/"]');
@@ -77,28 +77,28 @@ crawler = {
     linksArray = [];
 
     for (i = 0; i < relativeLinks.length; i++) {
-      linkText = $(relativeLinks[i]).text();
+      linkText = $(relativeLinks[i]).attr('href');
       linksArray.push(domainUrl + linkText);
     }
 
     for (i = 0; i < absoluteLinks.length; i++) {
-      linkText = $(absoluteLinks[i]).text();
+      linkText = $(absoluteLinks[i]).attr('href');
 
       if (domainRegExp.test(linkText)) {
         linksArray.push(linkText);
       }
     }
 
-    for (i = 0; i < linksArray.length i++) {
+    for (i = 0; i < linksArray.length; i++) {
       thisLink = linksArray[i];
 
       if (crawler.pagesToVisit.indexOf(thisLink) === -1) {
         crawler.pagesToVisit.push(thisLink);
       }
     }
-  }
 
-  crawler.continue(domainUrl);
+    crawler.continue(domainUrl);
+  }
 };
 
 module.exports = crawler;
