@@ -1,14 +1,15 @@
 'use strict';
 
-var GoogleSpreadsheet, async, auth, sheetsHelper;
+var GoogleSpreadsheet, async, auth, crawler, sheetsHelper;
 
 GoogleSpreadsheet = require('google-spreadsheet');
 async = require('async');
 auth = require('../config/auth.js');
+crawler = require('./crawler.js');
 
 sheetsHelper = {
 
-  start: function(req, res, next) {
+  getUrls: function(req, res, next) {
     var doc, sheet;
 
     // spreadsheet key is the long id in the sheets URL
@@ -25,25 +26,19 @@ sheetsHelper = {
 
         doc.useServiceAccountAuth(creds_json, step);
       },
-      function getInfoAndWorksheets(step) {
-          doc.getInfo(function(err, info) {
-            console.log('Loaded doc: '+info.title+' by '+info.author.email);
-            sheet = info.worksheets[0];
-            console.log('sheet 1: '+sheet.title+' '+sheet.rowCount+'x'+sheet.colCount);
+      function getWorksheets(step) {
+          doc.getInfo(function(err, data) {
+            sheet = data.worksheets[0];
             step();
           });
         },
         function workingWithRows(step) {
-          // google provides some query options
           sheet.getRows({
             offset: 1,
             limit: 20,
             orderby: 'col2'
           }, function( err, rows ){
-            console.log('Read '+rows.length+' rows');
-            rows[0].url = 'new url';
-            rows[0].status = 'new status';
-            rows[0].save(); // this is async
+            req.urlRows = rows;
             next();
           });
         }

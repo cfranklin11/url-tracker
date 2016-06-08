@@ -12,14 +12,15 @@ router.get('/', function(req, res, next) {
   res.render('index', {title: 'Express'});
 });
 router.get('/crawl',
-  crawler.start,
+  crawler.crawlUrls,
   function(req, res, next) {
     res.json(req.pagesCrawled);
 });
 router.get('/sheet',
-  sheets.start,
+  sheets.getUrls,
+  crawler.checkUrls,
   function(req, res, next) {
-    res.render('index', {title: 'sheets'});
+    res.json(req.pagesCrawled);
 });
 
 module.exports = router;

@@ -8,12 +8,12 @@ urlParse = require('url-parse');
 
 crawler = {
   domains: ['https://www.beyondblue.org.au'],
-
   pages: [],
-
+  changedPages: [],
   pagesToVisit: [],
+  pagesVisited: [],
 
-  start: function(req, res, next) {
+  crawlUrls: function(req, res, next) {
     var domains, i, thisDomain, urlObj, domainBaseUrl;
 
     domains = crawler.domains;
@@ -28,13 +28,28 @@ crawler = {
     }
   },
 
+  checkUrls: function(req, res, next) {
+    var urlRows, pagesToVisit, i, thisUrlRow;
+
+    urlRows = req.urlRows;
+    pagesToVisit = crawler.pagesToVisit;
+
+    for (i = 0; i < urlRows.length; i++) {
+      thisUrlRow = urlRows[i].url;
+      pagesToVisit.push(thisUrlRow);
+    }
+
+    crawler.pagesToVisit = pagesToVisit;
+    crawler.pages = urlRows;
+    crawler.continue(req, res, next);
+  },
+
   continue: function(req, res, next) {
     var thisPageToVisit;
 
     thisPageToVisit = crawler.pagesToVisit.shift();
 
     if (thisPageToVisit) {
-      console.log(thisPageToVisit);
       crawler.requestPage(req, res, next, thisPageToVisit);
     } else {
       req.pagesCrawled = crawler.pages;
@@ -43,32 +58,39 @@ crawler = {
   },
 
   requestPage: function(req, res, next, domainUrl) {
-    var pageStatus, pageObj, pages;
+    if (crawler.pagesVisited.indexOf(domainUrl) === -1) {
+      request(domainUrl, function(error, response, body) {
+        var pageStatus, pageObj, pages;
 
-    request(domainUrl, function(error, response, body) {
-      if (error) {
-        console.log(error);
-        res.redirect('/');
-      }
+        if (error) {
+          console.log(error);
+          res.redirect('/');
+        }
 
-      pageStatus = response.statusCode;
-      pageObj = {
-        url: domainUrl,
-        status: pageStatus
-      };
-      pages = crawler.pages;
+        crawler.pagesVisited.push(domainUrl);
 
-      if (pages.indexOf(pageObj) === -1) {
-        crawler.pages.push(pageObj);
-      }
+        pageStatus = response.statusCode;
+        pageObj = {
+          url: domainUrl,
+          status: pageStatus
+        };
+        pages = crawler.pages;
 
-      if (pageStatus === 200) {
-        crawler.collectLinks(domainUrl, body);
-      }
-    });
+        if (pages.indexOf(pageObj) === -1) {
+          crawler.changedPages.push(pageObj);
+        }
+
+        if (pageStatus === 200) {
+          crawler.collectLinks(req, res, next, domainUrl, body);
+        }
+      });
+
+    } else {
+      crawler.continue(req, res, next)
+    }
   },
 
-  collectLinks: function(domainUrl, body) {
+  collectLinks: function(req, res, next, domainUrl, body) {
     var $, relativeLinks, absoluteLinks, domainRegExp, linksArray, i, linkText, thisLink;
 
     $ = cheerio.load(body);
@@ -93,12 +115,13 @@ crawler = {
     for (i = 0; i < linksArray.length; i++) {
       thisLink = linksArray[i];
 
-      if (crawler.pagesToVisit.indexOf(thisLink) === -1) {
+      if (crawler.pagesToVisit.indexOf(thisLink) === -1 &&
+          crawler.pagesVisited.indexOf(thisLink) === -1) {
         crawler.pagesToVisit.push(thisLink);
       }
     }
 
-    crawler.continue(domainUrl);
+    crawler.continue(req, res, next);
   }
 };
 
