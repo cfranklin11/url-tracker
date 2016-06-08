@@ -52,6 +52,7 @@ crawler = {
     if (thisPageToVisit) {
       crawler.requestPage(req, res, next, thisPageToVisit);
     } else {
+      console.log('done');
       req.pagesCrawled = crawler.pages;
       next();
     }
@@ -82,16 +83,18 @@ crawler = {
 
         if (pageStatus === 200) {
           crawler.collectLinks(req, res, next, domainUrl, body);
+        } else {
+          console.log(crawler.pagesToVisit);
         }
       });
 
     } else {
-      crawler.continue(req, res, next)
+      crawler.continue(req, res, next);
     }
   },
 
   collectLinks: function(req, res, next, domainUrl, body) {
-    var $, relativeLinks, absoluteLinks, domainRegExp, linksArray, i, linkText, thisLink;
+    var $, relativeLinks, absoluteLinks, domainRegExp, linksArray, i, linkRef, thisLink;
 
     $ = cheerio.load(body);
     relativeLinks = $('a[href^="/"]');
@@ -100,15 +103,17 @@ crawler = {
     linksArray = [];
 
     for (i = 0; i < relativeLinks.length; i++) {
-      linkText = $(relativeLinks[i]).attr('href');
-      linksArray.push(domainUrl + linkText);
+      linkRef = $(relativeLinks[i]).attr('href');
+      linkRef = linkRef === '/' ? '' : linkRef;
+
+      linksArray.push(domainUrl + linkRef);
     }
 
     for (i = 0; i < absoluteLinks.length; i++) {
-      linkText = $(absoluteLinks[i]).attr('href');
+      linkRef = $(absoluteLinks[i]).attr('href');
 
-      if (domainRegExp.test(linkText)) {
-        linksArray.push(linkText);
+      if (domainRegExp.test(linkRef)) {
+        linksArray.push(linkRef);
       }
     }
 

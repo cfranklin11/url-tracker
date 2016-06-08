@@ -14,6 +14,7 @@ router.get('/', function(req, res, next) {
 router.get('/crawl',
   crawler.crawlUrls,
   function(req, res, next) {
+    console.log(req.pagesCrawled);
     res.json(req.pagesCrawled);
 });
 router.get('/sheet',
