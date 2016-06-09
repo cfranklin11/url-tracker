@@ -23,7 +23,7 @@ router.get('/sheet',
   },
   sheets.getSpreadsheet,
   function(req, res, next) {
-    res.json(req.pagesCrawled);
+  res.render('index', {title: 'Express'});
 });
 
 module.exports = router;

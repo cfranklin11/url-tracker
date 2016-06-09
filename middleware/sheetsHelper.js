@@ -13,7 +13,7 @@ sheetsHelper = {
     var doc;
 
     doc = new GoogleSpreadsheet('1mngkbi1Qcllg6VFwX24qHPk9c9x35koCv_K-gVdMq4I');
-    sheetsHelper.setAuth(doc);
+    sheetsHelper.setAuth(req, res, next, doc);
   },
 
   setAuth: function(req, res, next, doc) {
@@ -24,11 +24,15 @@ sheetsHelper = {
       private_key: auth.private_key
     };
 
-    doc.useServiceAccountAuth(creds_json, sheetsHelper.getWorksheets);
+    doc.useServiceAccountAuth(creds_json, function(doc) {
+      sheetsHelper.getWorksheets(req, res, next, doc);
+    });
   },
 
   getWorksheets: function(req, res, next, doc) {
     doc.getInfo(function(err, data) {
+      var sheet;
+
       if (err) {
         console.log(err);
         return;
@@ -63,8 +67,8 @@ sheetsHelper = {
         rows = test;
         rows.save();
         next();
-      })
-  }
+      });
+  },
 
   createUrls: function(req, res, next, sheet) {
     sheet.getRows(
@@ -89,21 +93,8 @@ sheetsHelper = {
 
         }
 
-      })
+      });
   }
-
-  //       function workingWithRows(step) {
-  //         sheet.getRows({
-  //           offset: 1,
-  //           limit: 20,
-  //           orderby: 'col2'
-  //         }, function( err, rows ){
-  //           req.urlRows = rows;
-  //           next();
-  //         });
-  //       }
-  //   ]);
-  // }
 };
 
 module.exports = sheetsHelper;
