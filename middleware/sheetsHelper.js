@@ -24,7 +24,7 @@ sheetsHelper = {
       private_key: auth.private_key
     };
 
-    doc.useServiceAccountAuth(creds_json, function(doc) {
+    doc.useServiceAccountAuth(creds_json, function() {
       sheetsHelper.getWorksheets(req, res, next, doc);
     });
   },
@@ -38,63 +38,79 @@ sheetsHelper = {
         return;
       }
 
-      sheet = data.worksheets[0];
-
-      if (req.updateUrls) {
-        sheetsHelper.updateUrls(req, res, next, sheet);
-      } else {
+      if (req.pagesCrawled) {
+        sheet = data.worksheets[1];
         sheetsHelper.createUrls(req, res, next, sheet);
+      } else {
+        sheet = data.worksheets[0];
+        sheetsHelper.updateUrls(req, res, next, sheet);
       }
     });
   },
 
   updateUrls: function(req, res, next, sheet) {
+    var pagesToCrawl, thisRow;
+
+    pagesToCrawl = [];
+
     sheet.getRows(
       {
         offset: 1,
         orderby: 'col2'
       },
       function(err, rows) {
-        var test;
-
-        test = [
-          {url: 'stuff.com', status: 404},
-          {url: 'morestuff.com', status: 404},
-          {url: 'evenmorestuff.com', status: 404},
-          {url: 'stillmorestuff.com', status: 404}
-        ];
-
-        rows = test;
-        rows.save();
-        next();
-      });
-  },
-
-  createUrls: function(req, res, next, sheet) {
-    sheet.getRows(
-      {
-        offset: 1,
-        orderby: 'col2'
-      },
-      function(err, rows) {
-        var pagesCrawled;
+        var i;
 
         if (err) {
           console.log(err);
-          return;
+          return next();
         }
 
-        if (!req.pagesCrawled) {
-          console.log("Error: Couldn't find pagesCrawled");
-          return;
-        } else {
-          pagesCrawled = req.pagesCrawled;
+        for (i = 0; i < rows.length; i++) {
+          thisRow = rows[i];
 
-
+          pagesToCrawl.push({
+            url: thisRow.url,
+            status: thisRow.status
+          });
         }
 
-      });
+        req.pagesToCrawl = pagesToCrawl;
+        next();
+    });
+  },
+
+  createUrls: function(req, res, next, sheet) {
+    sheetsHelper.addRows(sheet, req.pagesCrawled)
+  },
+
+  addRows: function(sheet, array) {
+    var i, arrayLength;
+
+    arrayLength = array.length;
+
+    for (i = 0; i < arrayLength; i++) {
+      if (i === arrayLength - 1) {
+        sheet.addRow(array[i], lastCallback);
+      } else {
+        sheet.addRow(array[i], handleError);
+      }
+    }
   }
 };
+
+function handleError(err) {
+  if (err) {
+    console.log(err);
+    next();
+  }
+}
+
+function lastCallback(err) {
+  if (err) {
+    console.log(err);
+  }
+  next();
+}
 
 module.exports = sheetsHelper;

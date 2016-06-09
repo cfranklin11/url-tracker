@@ -53,7 +53,7 @@ crawler = {
       crawler.requestPage(req, res, next, thisPageToVisit);
     } else {
       console.log('done');
-      req.pagesCrawled = crawler.pages;
+      req.pagesCrawled = crawler.changedPages;
       next();
     }
   },
