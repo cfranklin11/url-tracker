@@ -83,8 +83,6 @@ crawler = {
 
         if (pageStatus === 200) {
           crawler.collectLinks(req, res, next, domainUrl, body);
-        } else {
-          console.log(crawler.pagesToVisit);
         }
       });
 
