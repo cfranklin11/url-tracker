@@ -65,8 +65,10 @@ crawler = {
 
         if (error) {
           console.log(error);
-          res.redirect('/');
+          return res.redirect('/');
         }
+
+        console.log(domainUrl);
 
         crawler.pagesVisited.push(domainUrl);
 
@@ -83,9 +85,10 @@ crawler = {
 
         if (pageStatus === 200) {
           crawler.collectLinks(req, res, next, domainUrl, body);
+        } else {
+          crawler.continue(req, res, next);
         }
       });
-
     } else {
       crawler.continue(req, res, next);
     }

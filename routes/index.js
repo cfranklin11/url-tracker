@@ -14,12 +14,14 @@ router.get('/', function(req, res, next) {
 router.get('/crawl',
   crawler.crawlUrls,
   function(req, res, next) {
-    console.log(req.pagesCrawled);
     res.json(req.pagesCrawled);
 });
 router.get('/sheet',
-  sheets.getUrls,
-  crawler.checkUrls,
+  function(req, res, next) {
+    req.updateUrls = true;
+    next();
+  },
+  sheets.getSpreadsheet,
   function(req, res, next) {
     res.json(req.pagesCrawled);
 });
