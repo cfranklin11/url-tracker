@@ -12,6 +12,8 @@ sheetsHelper = {
   getSpreadsheet: function(req, res, next) {
     var doc;
 
+    console.log('sheets');
+
     doc = new GoogleSpreadsheet('1mngkbi1Qcllg6VFwX24qHPk9c9x35koCv_K-gVdMq4I');
     sheetsHelper.setAuth(req, res, next, doc);
   },
@@ -86,6 +88,8 @@ sheetsHelper = {
 
   addRows: function(sheet, array) {
     var i, arrayLength;
+
+    req.clearTimeout();
 
     arrayLength = array.length;
 

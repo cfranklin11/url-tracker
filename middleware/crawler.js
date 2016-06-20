@@ -16,6 +16,7 @@ crawler = {
   crawlUrls: function(req, res, next) {
     var domains, i, thisDomain, urlObj, domainBaseUrl;
 
+    req.clearTimeout();
     domains = crawler.domains;
 
     for (i = 0; i < domains.length; i++) {
@@ -47,6 +48,8 @@ crawler = {
   continue: function(req, res, next) {
     var thisPageToVisit;
 
+    req.clearTimeout();
+
     thisPageToVisit = crawler.pagesToVisit.shift();
 
     if (thisPageToVisit) {
@@ -58,9 +61,9 @@ crawler = {
     }
   },
 
-  requestPage: function(req, res, next, domainUrl) {
-    if (crawler.pagesVisited.indexOf(domainUrl) === -1) {
-      request(domainUrl, function(error, response, body) {
+  requestPage: function(req, res, next, pageUrl) {
+    if (crawler.pagesVisited.indexOf(pageUrl) === -1) {
+      request(pageUrl, function(error, response, body) {
         var pageStatus, pageObj, pages;
 
         if (error) {
@@ -68,13 +71,13 @@ crawler = {
           return res.redirect('/');
         }
 
-        console.log(domainUrl);
-
-        crawler.pagesVisited.push(domainUrl);
-
+        crawler.pagesVisited.push(pageUrl);
         pageStatus = response.statusCode;
+
+        console.log(pageUrl);
+
         pageObj = {
-          url: domainUrl,
+          url: pageUrl,
           status: pageStatus
         };
         pages = crawler.pages;
@@ -84,7 +87,7 @@ crawler = {
         }
 
         if (pageStatus === 200) {
-          crawler.collectLinks(req, res, next, domainUrl, body);
+          crawler.collectLinks(req, res, next, pageUrl, body);
         } else {
           crawler.continue(req, res, next);
         }
@@ -94,20 +97,22 @@ crawler = {
     }
   },
 
-  collectLinks: function(req, res, next, domainUrl, body) {
-    var $, relativeLinks, absoluteLinks, domainRegExp, linksArray, i, linkRef, thisLink;
+  collectLinks: function(req, res, next, pageUrl, body) {
+    var $, relativeLinks, absoluteLinks, urlObj, domainBaseUrl, domainRegExp, linksArray, i, linkRef, thisLink;
 
     $ = cheerio.load(body);
     relativeLinks = $('a[href^="/"]');
     absoluteLinks = $('a[href^="http"]');
-    domainRegExp = new RegExp(domainUrl);
+    urlObj = new urlParse(pageUrl);
+    domainBaseUrl = urlObj.protocol + '//' + urlObj.hostname;
+    domainRegExp = new RegExp(domainBaseUrl);
     linksArray = [];
 
     for (i = 0; i < relativeLinks.length; i++) {
       linkRef = $(relativeLinks[i]).attr('href');
       linkRef = linkRef === '/' ? '' : linkRef;
 
-      linksArray.push(domainUrl + linkRef);
+      linksArray.push(domainBaseUrl + linkRef);
     }
 
     for (i = 0; i < absoluteLinks.length; i++) {

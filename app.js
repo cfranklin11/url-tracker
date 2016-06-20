@@ -26,8 +26,13 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(timeout(0));
+app.use(haltOnTimedout);
 
 app.use('/', routes);
+
+function haltOnTimedout(req, res, next){
+  if (!req.timedout) next();
+}
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -35,12 +40,6 @@ app.use(function(req, res, next) {
   err.status = 404;
   next(err);
 });
-
-app.use(haltOnTimedout);
-
-function haltOnTimedout(req, res, next){
-  if (!req.timedout) next();
-}
 
 // error handlers
 
