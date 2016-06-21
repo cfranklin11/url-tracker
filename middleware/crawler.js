@@ -49,21 +49,19 @@ crawler = {
   continue: function(req, res, next) {
     var thisPageToVisit;
 
-    req.loopCount++;
     thisPageToVisit = crawler.pagesToVisit.shift();
 
     if (thisPageToVisit) {
-      if (req.loopCount % 1000 === 0) {
+      if (req.loopCount % 500 === 0) {
         setTimeout(function() {
           crawler.requestPage(req, res, next, thisPageToVisit);
-        }, 600000);
+        }, 0);
       } else {
         crawler.requestPage(req, res, next, thisPageToVisit);
       }
     } else {
-      console.log('done');
       req.pagesCrawled = crawler.changedPages;
-      next();
+      return next();
     }
   },
 
@@ -104,7 +102,8 @@ crawler = {
   },
 
   collectLinks: function(req, res, next, pageUrl, body) {
-    var $, relativeLinks, absoluteLinks, urlObj, domainBaseUrl, domainRegExp, linksArray, i, linkRef, thisLink;
+    var $, relativeLinks, absoluteLinks, urlObj, domainBaseUrl, domainRegExp,
+      pageRegExp, linksArray, i, linkRef, thisLink;
 
     $ = cheerio.load(body);
     relativeLinks = $('a[href^="/"]');
@@ -112,19 +111,22 @@ crawler = {
     urlObj = new urlParse(pageUrl);
     domainBaseUrl = urlObj.protocol + '//' + urlObj.hostname;
     domainRegExp = new RegExp(domainBaseUrl);
+    pageRegExp = /permalink|\.pdf|visited-locations|transcripts|news/i;
     linksArray = [];
 
     for (i = 0; i < relativeLinks.length; i++) {
       linkRef = $(relativeLinks[i]).attr('href');
       linkRef = linkRef === '/' ? '' : linkRef;
 
-      linksArray.push(domainBaseUrl + linkRef);
+      if (!pageRegExp.test(linkRef)) {
+        linksArray.push(domainBaseUrl + linkRef);
+      }
     }
 
     for (i = 0; i < absoluteLinks.length; i++) {
       linkRef = $(absoluteLinks[i]).attr('href');
 
-      if (domainRegExp.test(linkRef)) {
+      if (domainRegExp.test(linkRef) && !pageRegExp.test(linkRef)) {
         linksArray.push(linkRef);
       }
     }

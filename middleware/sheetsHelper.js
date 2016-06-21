@@ -78,41 +78,44 @@ sheetsHelper = {
         }
 
         req.pagesToCrawl = pagesToCrawl;
-        next();
+        return next();
     });
   },
 
   createUrls: function(req, res, next, sheet) {
-    sheetsHelper.addRows(sheet, req.pagesCrawled)
+    sheetsHelper.addRows(next, sheet, req.pagesCrawled);
   },
 
-  addRows: function(sheet, array) {
-    var i, arrayLength;
+  addRows: function(next, sheet, array) {
+    var thisArray, thisRow;
 
-    arrayLength = array.length;
+    console.log(sheet);
 
-    for (i = 0; i < arrayLength; i++) {
-      if (i === arrayLength - 1) {
-        sheet.addRow(array[i], lastCallback);
-      } else {
-        sheet.addRow(array[i], handleError);
-      }
-    }
+    thisArray = array.slice(0);
+
+    (function appendRow() {
+      thisRow = thisArray.splice(0, 1)[0];
+
+      console.log(thisRow);
+
+      sheet.addRow(thisRow, function(err) {
+        if (err) {
+          console.log(err);
+          return next();
+        }
+
+        if (thisArray.length === 0) {
+          return next();
+        } else {
+          if (thisArray.length % 500 === 0) {
+            setTimeout(appendRow(), 0);
+          } else {
+            appendRow();
+          }
+        }
+      });
+    })();
   }
 };
-
-function handleError(err) {
-  if (err) {
-    console.log(err);
-    next();
-  }
-}
-
-function lastCallback(err) {
-  if (err) {
-    console.log(err);
-  }
-  next();
-}
 
 module.exports = sheetsHelper;
