@@ -16,7 +16,7 @@ crawler = {
   crawlUrls: function(req, res, next) {
     var domains, i, thisDomain, urlObj, domainBaseUrl;
 
-    req.clearTimeout();
+    req.loopCount = 0;
     domains = crawler.domains;
 
     for (i = 0; i < domains.length; i++) {
@@ -32,6 +32,7 @@ crawler = {
   checkUrls: function(req, res, next) {
     var urlRows, pagesToVisit, i, thisUrlRow;
 
+    req.loopCount = 0;
     urlRows = req.urlRows;
     pagesToVisit = crawler.pagesToVisit;
 
@@ -48,12 +49,17 @@ crawler = {
   continue: function(req, res, next) {
     var thisPageToVisit;
 
-    req.clearTimeout();
-
+    req.loopCount++;
     thisPageToVisit = crawler.pagesToVisit.shift();
 
     if (thisPageToVisit) {
-      crawler.requestPage(req, res, next, thisPageToVisit);
+      if (req.loopCount % 1000 === 0) {
+        setTimeout(function() {
+          crawler.requestPage(req, res, next, thisPageToVisit);
+        }, 600000);
+      } else {
+        crawler.requestPage(req, res, next, thisPageToVisit);
+      }
     } else {
       console.log('done');
       req.pagesCrawled = crawler.changedPages;

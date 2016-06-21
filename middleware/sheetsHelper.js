@@ -89,8 +89,6 @@ sheetsHelper = {
   addRows: function(sheet, array) {
     var i, arrayLength;
 
-    req.clearTimeout();
-
     arrayLength = array.length;
 
     for (i = 0; i < arrayLength; i++) {
