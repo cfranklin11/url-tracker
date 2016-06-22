@@ -81,14 +81,8 @@ sheetsHelper = {
     });
   },
 
-  createUrls: function(req, res, next, sheet) {
-    sheetsHelper.addRows(next, sheet, req.pagesCrawled);
-  },
-
   addRows: function(next, sheet, array) {
     var thisArray, thisRow;
-
-    console.log('ADD ROWS');
 
     thisArray = array.slice(0);
 

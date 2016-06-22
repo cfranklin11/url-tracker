@@ -11,17 +11,17 @@ sheets = require('../middleware/sheetsHelper.js');
 router.get('/', function(req, res, next) {
   res.render('index', {title: 'Express'});
 });
-router.get('/update',
+router.post('/update',
   sheets.getSpreadsheet,
   crawler.crawlUrls,
   function(req, res, next) {
-    res.json(req.pagesCrawled);
+    res.redirect('/');
 });
-router.get('/crawl',
+router.post('/crawl',
   crawler.crawlUrls,
   sheets.getSpreadsheet,
   function(req, res, next) {
-    res.render('index', {title: 'Express'});
+    res.redirect('/');
 });
 
 module.exports = router;

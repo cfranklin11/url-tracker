@@ -1,7 +1,6 @@
 'use strict';
 
-var express, path, favicon, logger, cookieParser, bodyParser, timeout, routes,
-  app;
+var express, path, favicon, logger, cookieParser, bodyParser, routes, app;
 
 express = require('express');
 path = require('path');
@@ -9,7 +8,6 @@ favicon = require('serve-favicon');
 logger = require('morgan');
 cookieParser = require('cookie-parser');
 bodyParser = require('body-parser');
-timeout = require('connect-timeout');
 
 routes = require('./routes/index');
 app = express();
@@ -25,14 +23,8 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-// app.use(timeout(600000));
-// app.use(haltOnTimedout);
 
 app.use('/', routes);
-
-function haltOnTimedout(req, res, next){
-  if (!req.timedout) next();
-}
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

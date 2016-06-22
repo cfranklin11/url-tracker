@@ -60,6 +60,7 @@ crawler = {
         crawler.requestPage(req, res, next, thisPageToVisit);
       }
     } else {
+      console.log('NEXT');
       req.pagesCrawled = crawler.changedPages;
       return next();
     }
@@ -72,7 +73,7 @@ crawler = {
 
         if (error) {
           console.log(error);
-          return res.redirect('/');
+          return next();
         }
 
         crawler.pagesVisited.push(pageUrl);
