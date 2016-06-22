@@ -12,8 +12,6 @@ sheetsHelper = {
   getSpreadsheet: function(req, res, next) {
     var doc;
 
-    console.log('sheets');
-
     doc = new GoogleSpreadsheet('1mngkbi1Qcllg6VFwX24qHPk9c9x35koCv_K-gVdMq4I');
     sheetsHelper.setAuth(req, res, next, doc);
   },
@@ -33,7 +31,7 @@ sheetsHelper = {
 
   getWorksheets: function(req, res, next, doc) {
     doc.getInfo(function(err, data) {
-      var sheet;
+      var sheet, urlArray;
 
       if (err) {
         console.log(err);
@@ -42,7 +40,8 @@ sheetsHelper = {
 
       if (req.pagesCrawled) {
         sheet = data.worksheets[1];
-        sheetsHelper.createUrls(req, res, next, sheet);
+        urlArray = req.pagesCrawled;
+        sheetsHelper.addRows(next, sheet, urlArray);
       } else {
         sheet = data.worksheets[0];
         sheetsHelper.updateUrls(req, res, next, sheet);
@@ -89,12 +88,12 @@ sheetsHelper = {
   addRows: function(next, sheet, array) {
     var thisArray, thisRow;
 
-    console.log(sheet);
+    console.log('ADD ROWS');
 
     thisArray = array.slice(0);
 
     (function appendRow() {
-      thisRow = thisArray.splice(0, 1)[0];
+      thisRow = thisArray.shift();
 
       console.log(thisRow);
 
