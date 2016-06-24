@@ -1,9 +1,8 @@
 'use strict';
 
-var GoogleSpreadsheet, async, auth, crawler, sheetsHelper;
+var GoogleSpreadsheet, auth, crawler, sheetsHelper;
 
 GoogleSpreadsheet = require('google-spreadsheet');
-async = require('async');
 auth = require('../config/auth.js');
 crawler = require('./crawler.js');
 

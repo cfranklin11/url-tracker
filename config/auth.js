@@ -19,5 +19,6 @@ if (fs.existsSync(envFile)) {
 
 module.exports = {
   client_email: process.env.client_email,
-  private_key: process.env.private_key
+  private_key: process.env.private_key,
+  secret: process.env.secret
 };
