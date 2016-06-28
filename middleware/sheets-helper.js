@@ -41,7 +41,7 @@ sheetsHelper = {
         sheetsHelper.addChangedUrls(next, data, req.pagesCrawled);
 
       } else {
-        sheet = data.worksheets[0];
+        sheet = data.worksheets[1];
         sheetsHelper.getUrls(req, res, next, sheet);
       }
     });
@@ -82,7 +82,7 @@ sheetsHelper = {
   addChangedUrls: function(next, doc, urlArray) {
     var thisSheet, thisArray, thisRow;
 
-    thisSheet = doc.worksheets[1]
+    thisSheet = doc.worksheets[2]
     thisArray = urlArray;
 
     (function appendRow() {
@@ -109,8 +109,34 @@ sheetsHelper = {
     })();
   },
 
-  addBrokenLinks: function(next, sheet, array) {
-    var thisArray, thisRow;
+  addBrokenLinks: function(next, doc, array) {
+    var thisSheet, thisArray, thisRow;
+
+    thisSheet = doc.worksheets[3];
+    thisArray = array;
+
+    (function appendRow() {
+      thisRow = thisArray.shift();
+
+      console.log(thisRow);
+
+      thisSheet.addRow(thisRow, function(err) {
+        if (err) {
+          console.log(err);
+          return next();
+        }
+
+        if (thisArray.length === 0) {
+          return next();
+        } else {
+          if (thisArray.length % 500 === 0) {
+            setTimeout(appendRow(), 0);
+          } else {
+            appendRow();
+          }
+        }
+      });
+    })();
 
   }
 };

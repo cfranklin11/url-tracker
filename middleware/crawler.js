@@ -138,8 +138,8 @@ crawler = {
 
       if (crawler.errorPages.indexOf(linkRef) !== -1) {
         linkObj = {
-          pageUrl: pageUrl,
-          linkUrl: linkUrl
+          page_url: pageUrl,
+          link_url: linkUrl
         }
 
         if (crawler.brokenLinks.indexOf(linkObj) === -1) {
