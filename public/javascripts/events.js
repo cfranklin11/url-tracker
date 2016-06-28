@@ -1,20 +1,18 @@
 'use strict';
 
-$('body').submit(function(event) {
+$('form').submit(function(event) {
   var form, path, url;
 
   event.preventDefault();
-  form = $('form');
+  form = $(this);
   path = form.attr('action');
 
-  console.log(url);
+  console.log(path);
 
   $.post(
     path,
     function(data, status) {
       var newToken, action;
-
-      console.log(data);
 
       newToken = data.token;
       action = data.action;

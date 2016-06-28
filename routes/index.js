@@ -26,16 +26,10 @@ router.post('/api/token/:action',
       action: req.action
     });
 });
-router.post('/api/update',
-  jwtHelper.check,
-  sheets.getSpreadsheet,
-  crawler.crawlUrls,
-  function(req, res, next) {
-    res.redirect('/');
-});
 router.post('/api/crawl',
   jwtHelper.check,
-  crawler.crawlUrls,
+  sheets.getSpreadsheet,
+  crawler.checkUrls,
   sheets.getSpreadsheet,
   function(req, res, next) {
     res.redirect('/');

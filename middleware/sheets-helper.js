@@ -11,26 +11,26 @@ sheetsHelper = {
   getSpreadsheet: function(req, res, next) {
     var doc;
 
-    doc = new GoogleSpreadsheet('1mngkbi1Qcllg6VFwX24qHPk9c9x35koCv_K-gVdMq4I');
+    doc = new GoogleSpreadsheet(auth.doc_id);
     sheetsHelper.setAuth(req, res, next, doc);
   },
 
   setAuth: function(req, res, next, doc) {
-    var creds_json;
+    var credsJson;
 
-    creds_json = {
+    credsJson = {
       client_email: auth.client_email,
       private_key: auth.private_key
     };
 
-    doc.useServiceAccountAuth(creds_json, function() {
+    doc.useServiceAccountAuth(credsJson, function() {
       sheetsHelper.getWorksheets(req, res, next, doc);
     });
   },
 
   getWorksheets: function(req, res, next, doc) {
     doc.getInfo(function(err, data) {
-      var sheet, urlArray;
+      var urlSheet, linkSheet, urlArray, linkArray, sheet;
 
       if (err) {
         console.log(err);
@@ -38,17 +38,16 @@ sheetsHelper = {
       }
 
       if (req.pagesCrawled) {
-        sheet = data.worksheets[1];
-        urlArray = req.pagesCrawled;
-        sheetsHelper.addRows(next, sheet, urlArray);
+        sheetsHelper.addChangedUrls(next, data, req.pagesCrawled);
+
       } else {
         sheet = data.worksheets[0];
-        sheetsHelper.updateUrls(req, res, next, sheet);
+        sheetsHelper.getUrls(req, res, next, sheet);
       }
     });
   },
 
-  updateUrls: function(req, res, next, sheet) {
+  getUrls: function(req, res, next, sheet) {
     var pagesToCrawl, thisRow;
 
     pagesToCrawl = [];
@@ -80,24 +79,25 @@ sheetsHelper = {
     });
   },
 
-  addRows: function(next, sheet, array) {
-    var thisArray, thisRow;
+  addChangedUrls: function(next, doc, urlArray) {
+    var thisSheet, thisArray, thisRow;
 
-    thisArray = array.slice(0);
+    thisSheet = doc.worksheets[1]
+    thisArray = urlArray;
 
     (function appendRow() {
       thisRow = thisArray.shift();
 
       console.log(thisRow);
 
-      sheet.addRow(thisRow, function(err) {
+      thisSheet.addRow(thisRow, function(err) {
         if (err) {
           console.log(err);
           return next();
         }
 
         if (thisArray.length === 0) {
-          return next();
+          sheetsHelper.addBrokenLinks(next, doc, req.brokenLinks);
         } else {
           if (thisArray.length % 500 === 0) {
             setTimeout(appendRow(), 0);
@@ -107,6 +107,11 @@ sheetsHelper = {
         }
       });
     })();
+  },
+
+  addBrokenLinks: function(next, sheet, array) {
+    var thisArray, thisRow;
+
   }
 };
 
