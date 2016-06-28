@@ -5,15 +5,16 @@
     <link rel='stylesheet' href='/stylesheets/style.css' />
   </head>
   <body>
-    <h1 class="stuff"><%= title %></h1>
-    <h1>h stuff</h1>
-    <h1>more h stuff</h1>
-    <p class="stuff">Welcome to <%= title %></p>
-    <p class="stuff">stuff</p>
-    <p class="stuff">more stuff</p>
-    <form method="post" action="/crawl">
-      <input type="submit">
+    <h1><%= title %></h1>
+
+    <form method="post" action="/api/crawl">
+      <input type="submit" value="Crawl">
     </form>
-    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.9/angular.min.js"></script>
+    <form method="post" action="/api/update">
+      <input type="submit" value="Update">
+    </form>
+
+    <script type="text/javascript" src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+    <script type="text/javascript" src="/javascripts/events.js"></script>
   </body>
 </html>
