@@ -1,12 +1,13 @@
 'use strict';
 
-var express, router, crawler, sheets, jwtHelper;
+var express, router, crawler, sheets, jwtHelper, postmarkHelper;
 
 express = require('express');
 router = express.Router();
 crawler = require('../middleware/crawler.js');
 sheets = require('../middleware/sheets-helper.js');
 jwtHelper = require('../middleware/jwt-helper.js');
+postmarkHelper = require('../middleware/postmark-helper.js')
 
 router.param('action', function(req, res, next, action) {
   req.action = action;
@@ -31,6 +32,7 @@ router.post('/api/crawl',
   sheets.getSpreadsheet,
   crawler.checkUrls,
   sheets.getSpreadsheet,
+  postmarkHelper.sendNotification,
   function(req, res, next) {
     res.redirect('/');
 });

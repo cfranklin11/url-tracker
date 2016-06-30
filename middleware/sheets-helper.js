@@ -127,7 +127,7 @@ sheetsHelper = {
         }
 
         if (thisArray.length === 0) {
-          return next();
+          sheetsHelper.getEmails(next, doc);
         } else {
           if (thisArray.length % 500 === 0) {
             setTimeout(appendRow(), 0);
@@ -137,7 +137,32 @@ sheetsHelper = {
         }
       });
     })();
+  },
 
+  getEmails: function(next, doc) {
+    var thisSheet, emailRow, emails;
+
+    thisSheet = doc.worksheets[0];
+
+    thisSheet.getRows(
+      {
+        offset: 1,
+        orderby: 'col2'
+      },
+      function(err, rows) {
+        var i;
+
+        if (err) {
+          console.log(err);
+          return next();
+        }
+
+        emailRow = rows[0].email_recipients;
+        emails = emailRow.split(/,\s*/g);
+
+        req.emailList = emails;
+        return next();
+    });
   }
 };
 

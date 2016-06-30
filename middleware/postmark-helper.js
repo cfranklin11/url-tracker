@@ -7,18 +7,18 @@ pmClient = new postmark.Client(postmarkKey);
 
 self = module.exports = {
 
-  sendNotification: function ( req, res ) {
+  sendNotification: function (req, res) {
     var receivers, receiversEmails;
 
-    receivers = req.receivers;
+    receivers = req.emailList;
     receiversEmails = receivers.join(', ');
 
     pmClient.sendEmail({
       'From': 'search.melbourne@mediacom.com',
       'To': receiversEmails,
       'Subject': 'Check URL Errors',
-      'TextBody': 'Check which URLs have changed, and which have errors here:\n' +
-        'https://docs.google.com/spreadsheets/d/' + auth.doc_id
+      'TextBody': 'Check which URLs have changed, and which have errors here:' +
+        '\nhttps://docs.google.com/spreadsheets/d/' + auth.doc_id
       },
       function (err, to) {
         if (err) {
