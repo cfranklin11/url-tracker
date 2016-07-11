@@ -73,6 +73,8 @@ sheetsHelper = self = {
           return next();
         }
 
+        // Push all rows of 'Existing URLs' into 'pagesToCrawl' for use
+        // by crawler.js
         for (i = 0; i < rows.length; i++) {
           thisRow = rows[i];
 
@@ -87,91 +89,102 @@ sheetsHelper = self = {
     });
   },
 
+  // After crawling, add 'pagesCrawled' info to new URLs sheet
+  // (only includes pages that have changed from those in 'Existing URLs')
   addChangedUrls: function(req, res, next, doc) {
-    var newUrlSheet, newUrls, thisRow;
+    var newUrlSheet, newUrls, params;
 
     newUrlSheet = doc.worksheets[2];
     newUrls = req.pagesCrawled;
 
-    (function appendRow() {
-      thisRow = newUrls.shift();
-
-      if (thisRow) {
-        newUrlSheet.addRow(thisRow, function(err) {
-          if (err) {
-            console.log(err);
-            return next();
-          }
-
-          if (newUrls.length % 500 === 0) {
-            setTimeout(appendRow(), 0);
-          } else {
-            appendRow();
-          }
-        });
-
-      } else {
-        self.addBrokenLinks(req, res, next, doc);
-      }
-    })();
+    params = {
+      req: req,
+      res: res,
+      next: next,
+      doc: doc
+    };
+    self.appendRow(newUrlSheet, newUrls, params, self.addBrokenLinks);
   },
 
+  // Add broken links info to 'Broken Links' sheet
   addBrokenLinks: function(req, res, next, doc) {
     var brokenLinkSheet, brokenLinks, thisRow;
 
     brokenLinkSheet = doc.worksheets[3];
     brokenLinks = req.brokenLinks;
 
+    // First, get existing rows to avoid duplication
     brokenLinkSheet.getRows(
       {
         offset: 1,
         orderby: 'col2'
       },
       function(err, rows) {
-        var i, thisData, index, thisLink;
+        var i, thisData, index, params;
 
         if (err) {
           console.log(err);
           return next();
         }
 
+        // Loop through existing broken links rows to check if they're in
+        // the new broken links array
         for (i = 0; i < rows.length; i++) {
           thisRow = rows[i];
+
+          // **** NOTE: 'getRows' removes '_' from column names ****
           thisData = {
-            page_url: thisRow.page_url,
-            link_url: thisRow.link_url
+            page_url: thisRow.pageurl,
+            link_url: thisRow.linkurl
           };
 
           index = brokenLinks.indexOf(thisData);
 
+          // If the existing link info is in the new broken links array,
+          // remove it from the array
           if (index !== -1) {
             brokenLinks.splice(index, 1);
           }
         }
 
-        (function appendRow() {
-          thisLink = brokenLinks.shift();
+        params = {
+          req: req,
+          res: res,
+          next: next,
+          doc: doc
+        };
+        self.appendRow(brokenLinkSheet, brokenLinks, params, self.getEmails);
+    });
+  },
 
-          if (thisLink) {
-            brokenLinkSheet.addRow(thisLink, function(err) {
+  appendRow: function(sheet, rowArray, params, callback) {
+          var thisArray, thisRow, req, res, next, doc;
+
+          thisArray = rowArray.slice(0);
+          thisRow = thisArray.shift();
+
+          if (thisRow) {
+            sheet.addRow(thisRow, function(err) {
               if (err) {
                 console.log(err);
                 return next();
               }
 
-              if (brokenLinks.length % 500 === 0) {
-                setTimeout(appendRow(), 0);
+              if (rowArray.length % 500 === 0) {
+                setTimeout(self.appendRow(sheet, thisArray, params, callback), 0);
 
               } else {
-                appendRow();
+                self.appendRow(sheet, thisArray, params, callback);
               }
             });
 
           } else {
-            self.getEmails(req, res, next, doc);
+            req = params.req;
+            res = params.res;
+            next = params.next;
+            doc = params.doc;
+            callback(req, res, next, doc);
           }
-        })();
-    });
   },
 
   getEmails: function(req, res, next, doc) {
@@ -190,9 +203,8 @@ sheetsHelper = self = {
           return next();
         }
 
-        console.log(rows);
-
-        emailRow = rows[0].email_recipients;
+        // **** NOTE: 'getRows' removes '_' from column names ****
+        emailRow = rows[0].emailrecipients;
 
         if (emailRow) {
           emails = emailRow.split(/,\s*/g);
