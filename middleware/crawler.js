@@ -27,7 +27,6 @@ crawler = self = {
     // adding them to 'pagesToVisit' and 'errorPages' arrays
     for (i = 0; i < urlRows.length; i++) {
       thisUrl = urlRows[i].url;
-
       thisStatus = urlRows[i].status;
       self.pagesToVisit.push(thisUrl);
 
@@ -35,7 +34,6 @@ crawler = self = {
         self.errorPages.push(thisUrl);
       }
     }
-
     self.continue(req, res, next);
   },
 
@@ -47,7 +45,7 @@ crawler = self = {
     thisPageToVisit = self.pagesToVisit[0];
     self.loopCount++;
 
-    if (thisPageToVisit && self.loopCount <= 20) {
+    if (thisPageToVisit && self.loopCount <= 700) {
 
       // Periodically reset timeout to keep the crawler going
       if (self.loopCount % 500 === 1) {
@@ -91,10 +89,9 @@ crawler = self = {
           status: pageStatus
         };
 
-        // If the page doesn't exist on Current URLs sheet
-        // (i.e. not in 'pagesVisited' or 'pagesToVisit'), or returns 404,
+        // If the page doesn't exist on Current URLs sheet,
         // add it to 'changedPages'
-        if (self.pagesToVisit.indexOf(pageUrl) === -1 || /40\d/.test(pageStatus)) {
+        if (req.pagesToCrawl.indexOf(pageObj) === -1) {
           self.changedPages.push(pageObj);
         }
 
