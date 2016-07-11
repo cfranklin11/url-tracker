@@ -110,54 +110,22 @@ sheetsHelper = self = {
 
   // Add broken links info to 'Broken Links' sheet
   addBrokenLinks: function(req, res, next, doc) {
-    var brokenLinkSheet, brokenLinks, thisRow;
+    var brokenLinkSheet, brokenLinks, params;
 
     brokenLinkSheet = doc.worksheets[3];
     brokenLinks = req.brokenLinks;
 
-    // First, get existing rows to avoid duplication
-    brokenLinkSheet.getRows(
-      {
-        offset: 1,
-        orderby: 'col2'
-      },
-      function(err, rows) {
-        var i, thisData, index, params;
+    // Clear previous broken links from the sheet
+    brokenLinkSheet.clear(function() {
+      params = {
+        req: req,
+        res: res,
+        next: next,
+        doc: doc
+      };
 
-        if (err) {
-          console.log(err);
-          return next();
-        }
-
-        // Loop through existing broken links rows to check if they're in
-        // the new broken links array
-        for (i = 0; i < rows.length; i++) {
-          thisRow = rows[i];
-
-          // **** NOTE: 'getRows' removes '_' from column names ****
-          thisData = {
-            page_url: thisRow.pageurl,
-            link_url: thisRow.linkurl
-          };
-
-          index = brokenLinks.indexOf(thisData);
-
-          // If the existing link info is in the new broken links array,
-          // remove it from the array
-          if (index !== -1) {
-            brokenLinks.splice(index, 1);
-          }
-        }
-
-        params = {
-          req: req,
-          res: res,
-          next: next,
-          doc: doc
-        };
-
-        // Add rows to broken links sheet, then go to 'getEmails'
-        self.appendRow(brokenLinkSheet, brokenLinks, params, self.getEmails);
+      // Add rows to broken links sheet, then go to 'getEmails'
+      self.appendRow(brokenLinkSheet, brokenLinks, params, self.getEmails);
     });
   },
 
@@ -167,6 +135,8 @@ sheetsHelper = self = {
 
           thisArray = rowArray.slice(0);
           thisRow = thisArray.shift();
+          next = params.next;
+          req = params.req;
 
           // If there's another row to add, add it and repeat 'appendRow'
           if (thisRow) {
@@ -189,9 +159,7 @@ sheetsHelper = self = {
 
           // Otherwise, invoke callback
           } else {
-            req = params.req;
             res = params.res;
-            next = params.next;
             doc = params.doc;
             callback(req, res, next, doc);
           }

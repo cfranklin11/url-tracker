@@ -45,7 +45,7 @@ crawler = self = {
     thisPageToVisit = self.pagesToVisit[0];
     self.loopCount++;
 
-    if (thisPageToVisit && self.loopCount <= 700) {
+    if (thisPageToVisit && self.loopCount <= 30) {
 
       // Periodically reset timeout to keep the crawler going
       if (self.loopCount % 500 === 1) {
@@ -72,28 +72,33 @@ crawler = self = {
     // Only request the page if you haven't visited it yet
     if (self.pagesVisited.indexOf(pageUrl) === -1) {
       request(pageUrl, function(error, response, body) {
-        var pageStatus, pageObj;
+        var pageStatus, pageObj, urlIndex;
 
         if (error) {
           console.log(error);
           return next();
         }
 
-        console.log(pageUrl);
-
-        // Add this page to 'pagesVisited', so you don't make repeat visits
-        self.pagesVisited.push(pageUrl);
         pageStatus = response.statusCode;
         pageObj = {
           url: pageUrl,
-          status: pageStatus
+          status: pageStatus.toString()
         };
+
+        console.log(pageUrl);
 
         // If the page doesn't exist on Current URLs sheet,
         // add it to 'changedPages'
-        if (req.pagesToCrawl.indexOf(pageObj) === -1) {
+        urlIndex = req.pagesToCrawl.findIndex(function(item) {
+          return item.url === pageObj.url && item.status === pageObj.status;
+        });
+
+        if (urlIndex === -1) {
           self.changedPages.push(pageObj);
         }
+
+        // Add this page to 'pagesVisited', so you don't make repeat visits
+        self.pagesVisited.push(pageUrl);
 
         // Remove the URL from 'pagesToVisit'
         self.pagesToVisit.shift();
