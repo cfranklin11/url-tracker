@@ -33,7 +33,7 @@ sheetsHelper = self = {
 
   // Get correct sheet, depending on whether your reading or writing
   getWorksheets: function(req, res, next, doc) {
-    doc.getInfo(function(err, data) {
+    doc.getInfo(function(err, info) {
 
       if (err) {
         console.log(err);
@@ -42,19 +42,19 @@ sheetsHelper = self = {
 
       // If you've already crawled, write rows to new URLs sheet
       if (req.pagesCrawled) {
-        self.addChangedUrls(req, res, next, data);
+        self.addChangedUrls(req, res, next, info);
 
       // Otherwise, collect existing URLs to crawl
       } else {
-        self.moveNewUrls(req, res, next, data);
+        self.moveNewUrls(req, res, next, info);
       }
     });
   },
 
-  moveNewUrls: function(req, res, next, doc) {
+  moveNewUrls: function(req, res, next, info) {
     var newUrlSheet;
 
-    newUrlSheet = doc.getWorksheets[2];
+    newUrlSheet = info.worksheets[2];
     newUrlSheet.getRows(
       {
         offset: 1,
@@ -75,11 +75,12 @@ sheetsHelper = self = {
           };
         });
 
-        existingUrlSheet = doc.getWorksheets[1];
+        existingUrlSheet = info.worksheets[1];
         params = {
           req: req,
           res: res,
-          next: next
+          next: next,
+          info: info
         };
         self.appendRow(existingUrlSheet, newUrlRows, params, self.getUrls);
     });
@@ -87,10 +88,10 @@ sheetsHelper = self = {
 
   // Collect array of URLs that you want to check
   // (found in 'Existing URLs' sheet)
-  getUrls: function(req, res, next, doc) {
+  getUrls: function(req, res, next, info) {
     var urlSheet, pagesToCrawl, thisRow;
 
-    urlSheet = doc.getWorksheets[1];
+    urlSheet = info.worksheets[1];
     pagesToCrawl = [];
 
     urlSheet.getRows(
@@ -124,10 +125,10 @@ sheetsHelper = self = {
 
   // After crawling, add 'pagesCrawled' info to new URLs sheet
   // (only includes pages that have changed from those in 'Existing URLs')
-  addChangedUrls: function(req, res, next, doc) {
+  addChangedUrls: function(req, res, next, info) {
     var newUrlSheet;
 
-    newUrlSheet = doc.worksheets[2];
+    newUrlSheet = info.worksheets[2];
     newUrlSheet.clear(function(err) {
 
       if (err) {
@@ -135,7 +136,7 @@ sheetsHelper = self = {
         return next();
       }
 
-      newUrlSheet.setHeaderRows(
+      newUrlSheet.setHeaderRow(
         ['page_url', 'link_url'],
         function(err) {
           var params;
@@ -149,7 +150,7 @@ sheetsHelper = self = {
             req: req,
             res: res,
             next: next,
-            doc: doc
+            info: info
           };
 
           // Add rows to new URL sheet, then go to 'addBrokenLinks'
@@ -159,10 +160,10 @@ sheetsHelper = self = {
   },
 
   // Add broken links info to 'Broken Links' sheet
-  addBrokenLinks: function(req, res, next, doc) {
+  addBrokenLinks: function(req, res, next, info) {
     var brokenLinkSheet;
 
-    brokenLinkSheet = doc.worksheets[3];
+    brokenLinkSheet = info.worksheets[3];
 
     // Clear previous broken links from the sheet
     brokenLinkSheet.clear(function(err) {
@@ -172,7 +173,7 @@ sheetsHelper = self = {
         return next();
       }
 
-      brokenLinkSheet.setHeaderRows(
+      brokenLinkSheet.setHeaderRow(
         ['page_url', 'link_url'],
         function(err) {
           var params;
@@ -186,7 +187,7 @@ sheetsHelper = self = {
             req: req,
             res: res,
             next: next,
-            doc: doc
+            info: info
           };
 
           // Add rows to broken links sheet, then go to 'getEmails'
@@ -197,7 +198,7 @@ sheetsHelper = self = {
 
   // Function for adding rows to a given sheet
   appendRow: function(sheet, rowArray, params, callback) {
-          var thisArray, thisRow, req, res, next, doc;
+          var thisArray, thisRow, req, res, next, info;
 
           thisArray = rowArray.slice(0);
           thisRow = thisArray.shift();
@@ -227,17 +228,17 @@ sheetsHelper = self = {
           // Otherwise, invoke callback
           } else {
             res = params.res;
-            doc = params.doc;
-            callback(req, res, next, doc);
+            info = params.info;
+            callback(req, res, next, info);
           }
   },
 
   // Gets e-mail addresses listed in Google Sheets to send
   // a notification e-mail
-  getEmails: function(req, res, next, doc) {
+  getEmails: function(req, res, next, info) {
     var infoSheet, emailRow, emails;
 
-    infoSheet = doc.worksheets[0];
+    infoSheet = info.worksheets[0];
 
     // Only send an e-mail if there are new URLs or broken links
     if (req.notification) {
