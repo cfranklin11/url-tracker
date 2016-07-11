@@ -9,9 +9,9 @@
 
     <form method="post" action="/api/token/crawl">
       <% if (docId) { %>
-        <input type="text" value="<%= docId %>">
+        <input type="text" name="id" value="<%= docId %>">
       <% } else { %>
-        <input type="text" value="" placeholder="Google Sheets ID">
+        <input type="text" name="id" value="" placeholder="Google Sheets ID">
       <% } %>
       <input type="submit" value="Crawl, baby, crawl!">
     </form>

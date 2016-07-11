@@ -10,7 +10,9 @@ sheetsHelper = self = {
 
   // Start by getting the sheet by ID
   getSpreadsheet: function(req, res, next) {
-    var doc;
+    var doc, docId;
+
+    docId = req.body.id || auth.doc_id;
 
     doc = new GoogleSpreadsheet(auth.doc_id);
     self.setAuth(req, res, next, doc);
