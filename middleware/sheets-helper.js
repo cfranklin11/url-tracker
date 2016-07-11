@@ -119,7 +119,7 @@ sheetsHelper = self = {
         orderby: 'col2'
       },
       function(err, rows) {
-        var i;
+        var i, thisData, index, thisLink;
 
         if (err) {
           console.log(err);
@@ -131,7 +131,7 @@ sheetsHelper = self = {
           thisData = {
             page_url: thisRow.page_url,
             link_url: thisRow.link_url
-          }
+          };
 
           index = brokenLinks.indexOf(thisData);
 

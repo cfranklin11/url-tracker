@@ -44,7 +44,7 @@ crawler = self = {
   continue: function(req, res, next) {
     var thisPageToVisit;
 
-    thisPageToVisit = self.pagesToVisit.shift();
+    thisPageToVisit = self.pagesToVisit[0];
     self.loopCount++;
 
     if (thisPageToVisit && self.loopCount <= 20) {
@@ -81,8 +81,6 @@ crawler = self = {
           return next();
         }
 
-        console.log(pageUrl);
-
         // Add this page to 'pagesVisited', so you don't make repeat visits
         self.pagesVisited.push(pageUrl);
         pageStatus = response.statusCode;
@@ -98,15 +96,15 @@ crawler = self = {
           self.changedPages.push(pageObj);
         }
 
+        // Remove the URL from 'pagesToVisit'
+        self.pagesToVisit.shift();
+
         // If the page is working, collect links for other pages
         if (pageStatus === 200) {
           self.collectLinks(req, res, next, pageUrl, body);
 
         } else {
-          req.pagesCrawled = self.changedPages;
-          req.brokenLinks = self.brokenLinks;
-          return next();
-          // self.continue(req, res, next);
+          self.continue(req, res, next);
         }
       });
 
