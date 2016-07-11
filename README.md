@@ -30,13 +30,15 @@ This app is meant for use by digital marketers who need to keep track of changes
 * If the 'id' parameter is in the app's URL, the text input will be filled in automatically.
 
 ### Process:
-1. The app starts by collecting all URLs in the 'Current URLs' sheet.
+1. The app starts by collecting all URLs in the 'Existing URLs' sheet.
 ..* These URLs can be from multiple domains.
+..* If this is your first time running this app, be sure to put at least one full URL in 'Existing URLs' (e.g. 'https://www.website.com').
+..* If the app has been run on this worksheet before, it starts by copying all URLs from 'New/Modified URLs' over to 'Existing URLs'.
 2. The app crawls all pages on all domains included in the URLs, saving the following:
-..* All URLs that don't already exist in 'Current URLs'.
+..* All URLs that don't already exist in 'Existing URLs'.
 ..* All URLs that return a status in the 400s.
 ..* URLs of all pages that contain links to pages with statuses in the 400s (along with the href of those links).
-3. The app writes new/changed URLs and broken links info to the corresponding sheets.
+3. After clearing the old data, the app writes new/changed URLs and broken links info to the corresponding sheets.
 4. If there is new info, the app sends a notification e-mail to all addresses under 'email_recipients' on the 'Instructions' page.
 
 ** Known Issues
