@@ -39,6 +39,8 @@ sheetsHelper = self = {
   getWorksheets: function(req, res, next, doc) {
     doc.getInfo(function(err, info) {
 
+      console.log('worksheet');
+
       if (err) {
         console.log(err);
         return;
@@ -58,6 +60,8 @@ sheetsHelper = self = {
   // Copy URLs from 'New/Modified URLs' over to 'Existing URLs'
   moveNewUrls: function(req, res, next, info) {
     var newUrlSheet;
+
+    console.log('move urls');
 
     newUrlSheet = info.worksheets[2];
     newUrlSheet.getRows(
@@ -97,6 +101,8 @@ sheetsHelper = self = {
   // (found in 'Existing URLs' sheet)
   getUrls: function(req, res, next, info) {
     var urlSheet, pagesToCrawl, thisRow;
+
+    console.log('get urls');
 
     urlSheet = info.worksheets[1];
     pagesToCrawl = [];
