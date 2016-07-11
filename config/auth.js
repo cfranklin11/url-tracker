@@ -19,7 +19,7 @@ if (fs.existsSync(envFile)) {
 
 module.exports = {
   client_email: process.env.client_email,
-  private_key: process.env.private_key,
+  private_key: process.env.private_key.replace(/_/g, ' '),
   secret: process.env.secret,
   doc_id: process.env.doc_id,
   postmark_key: process.env.postmark_key
