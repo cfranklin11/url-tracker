@@ -15,11 +15,15 @@ router.param('action', function(req, res, next, action) {
 });
 
 router.get('/', function(req, res, next) {
-  res.render('index', {title: 'Express'});
+  res.render('index', {
+    title: 'Express',
+    docId: req.query.id // Auto-fill text input with 'id' URL parameter
+  });
 });
 
+// Start by creating a Javascript Web Tokein (JWT) and sending it to client
 router.post('/api/token/:action',
-  jwtHelper.create,
+  jwtHelper.create, //Creates JWT
   function(req, res, next) {
     res.json({
       success: true,
@@ -27,12 +31,15 @@ router.post('/api/token/:action',
       action: req.action
     });
 });
+
+// With success above, proceed to crawl website(s), record info
+// in Google Sheets, then send e-mail notification if there's new info
 router.post('/api/crawl',
-  jwtHelper.check,
-  sheets.getSpreadsheet,
-  crawler.checkUrls,
-  sheets.getSpreadsheet,
-  postmarkHelper.sendNotification,
+  jwtHelper.check, //Verifies JWT
+  sheets.getSpreadsheet, //Reads existing info from Google Sheets
+  crawler.checkUrls, //Crawls website(s)
+  sheets.getSpreadsheet, //Writes new info to Google Sheets
+  postmarkHelper.sendNotification, //Sends e-mail notification
   function(req, res, next) {
     res.redirect('/');
 });

@@ -8,10 +8,12 @@
     <h1><%= title %></h1>
 
     <form method="post" action="/api/token/crawl">
-      <input type="submit" value="Crawl">
-    </form>
-    <form method="post" action="/api/token/update">
-      <input type="submit" value="Update">
+      <% if (docId) { %>
+        <input type="text" value="<%= docId %>">
+      <% } else { %>
+        <input type="text" value="" placeholder="Google Sheets ID">
+      <% } %>
+      <input type="submit" value="Crawl, baby, crawl!">
     </form>
 
     <script type="text/javascript" src="http://code.jquery.com/jquery-1.11.3.min.js"></script>

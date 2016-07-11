@@ -1,7 +1,7 @@
 var auth, postmarkKey, postmark, pmClient, self;
 
 auth = require('../config/auth.js');
-postmarkKey = auth.postmarkKey;
+postmarkKey = auth.postmark_key;
 postmark = require('postmark');
 pmClient = new postmark.Client(postmarkKey);
 

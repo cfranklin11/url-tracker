@@ -1,18 +1,18 @@
 'use strict';
 
-var GoogleSpreadsheet, auth, crawler, sheetsHelper;
+var GoogleSpreadsheet, auth, crawler, sheetsHelper, self;
 
 GoogleSpreadsheet = require('google-spreadsheet');
 auth = require('../config/auth.js');
 crawler = require('./crawler.js');
 
-sheetsHelper = {
+sheetsHelper = self = {
 
   getSpreadsheet: function(req, res, next) {
     var doc;
 
     doc = new GoogleSpreadsheet(auth.doc_id);
-    sheetsHelper.setAuth(req, res, next, doc);
+    self.setAuth(req, res, next, doc);
   },
 
   setAuth: function(req, res, next, doc) {
@@ -24,13 +24,13 @@ sheetsHelper = {
     };
 
     doc.useServiceAccountAuth(credsJson, function() {
-      sheetsHelper.getWorksheets(req, res, next, doc);
+      self.getWorksheets(req, res, next, doc);
     });
   },
 
   getWorksheets: function(req, res, next, doc) {
     doc.getInfo(function(err, data) {
-      var urlSheet, linkSheet, urlArray, linkArray, sheet;
+      var sheet;
 
       if (err) {
         console.log(err);
@@ -38,21 +38,21 @@ sheetsHelper = {
       }
 
       if (req.pagesCrawled) {
-        sheetsHelper.addChangedUrls(next, data, req.pagesCrawled);
+        self.addChangedUrls(req, res, next, data);
 
       } else {
         sheet = data.worksheets[1];
-        sheetsHelper.getUrls(req, res, next, sheet);
+        self.getUrls(req, res, next, sheet);
       }
     });
   },
 
-  getUrls: function(req, res, next, sheet) {
+  getUrls: function(req, res, next, urlSheet) {
     var pagesToCrawl, thisRow;
 
     pagesToCrawl = [];
 
-    sheet.getRows(
+    urlSheet.getRows(
       {
         offset: 1,
         orderby: 'col2'
@@ -79,27 +79,25 @@ sheetsHelper = {
     });
   },
 
-  addChangedUrls: function(next, doc, urlArray) {
-    var thisSheet, thisArray, thisRow;
+  addChangedUrls: function(req, res, next, doc) {
+    var newUrlSheet, newUrls, thisRow;
 
-    thisSheet = doc.worksheets[2]
-    thisArray = urlArray;
+    newUrlSheet = doc.worksheets[2];
+    newUrls = req.pagesCrawled;
 
     (function appendRow() {
-      thisRow = thisArray.shift();
+      thisRow = newUrls.shift();
 
-      console.log(thisRow);
-
-      thisSheet.addRow(thisRow, function(err) {
+      newUrlSheet.addRow(thisRow, function(err) {
         if (err) {
           console.log(err);
           return next();
         }
 
-        if (thisArray.length === 0) {
-          sheetsHelper.addBrokenLinks(next, doc, req.brokenLinks);
+        if (newUrls.length === 0) {
+          self.addBrokenLinks(req, res, next, doc);
         } else {
-          if (thisArray.length % 500 === 0) {
+          if (newUrls.length % 500 === 0) {
             setTimeout(appendRow(), 0);
           } else {
             appendRow();
@@ -109,42 +107,13 @@ sheetsHelper = {
     })();
   },
 
-  addBrokenLinks: function(next, doc, array) {
-    var thisSheet, thisArray, thisRow;
+  addBrokenLinks: function(req, res, next, doc) {
+    var brokenLinkSheet, brokenLinks, thisRow;
 
-    thisSheet = doc.worksheets[3];
-    thisArray = array;
+    brokenLinkSheet = doc.worksheets[3];
+    brokenLinks = req.brokenLinks;
 
-    (function appendRow() {
-      thisRow = thisArray.shift();
-
-      console.log(thisRow);
-
-      thisSheet.addRow(thisRow, function(err) {
-        if (err) {
-          console.log(err);
-          return next();
-        }
-
-        if (thisArray.length === 0) {
-          sheetsHelper.getEmails(next, doc);
-        } else {
-          if (thisArray.length % 500 === 0) {
-            setTimeout(appendRow(), 0);
-          } else {
-            appendRow();
-          }
-        }
-      });
-    })();
-  },
-
-  getEmails: function(next, doc) {
-    var thisSheet, emailRow, emails;
-
-    thisSheet = doc.worksheets[0];
-
-    thisSheet.getRows(
+    brokenLinkSheet.getRows(
       {
         offset: 1,
         orderby: 'col2'
@@ -156,6 +125,61 @@ sheetsHelper = {
           console.log(err);
           return next();
         }
+
+        for (i = 0; i < rows.length; i++) {
+          thisRow = rows[i];
+          thisData = {
+            page_url: thisRow.page_url,
+            link_url: thisRow.link_url
+          }
+
+          index = brokenLinks.indexOf(thisData);
+
+          if (index !== -1) {
+            brokenLinks.splice(index, 1);
+          }
+        }
+
+        (function appendRow() {
+          thisLink = brokenLinks.shift();
+
+          brokenLinkSheet.addRow(thisLink, function(err) {
+            if (err) {
+              console.log(err);
+              return next();
+            }
+
+            if (brokenLinks.length === 0) {
+              self.getEmails(req, res, next, doc);
+            } else {
+              if (brokenLinks.length % 500 === 0) {
+                setTimeout(appendRow(), 0);
+              } else {
+                appendRow();
+              }
+            }
+          });
+        })();
+    });
+  },
+
+  getEmails: function(req, res, next, doc) {
+    var infoSheet, emailRow, emails;
+
+    infoSheet = doc.worksheets[0];
+
+    infoSheet.getRows(
+      {
+        offset: 1,
+        orderby: 'col2'
+      },
+      function(err, rows) {
+        if (err) {
+          console.log(err);
+          return next();
+        }
+
+        console.log(rows);
 
         emailRow = rows[0].email_recipients;
         emails = emailRow.split(/,\s*/g);

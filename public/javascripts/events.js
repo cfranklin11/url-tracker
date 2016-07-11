@@ -7,8 +7,7 @@ $('form').submit(function(event) {
   form = $(this);
   path = form.attr('action');
 
-  console.log(path);
-
+  // Make initial POST call to get JWT from server side
   $.post(
     path,
     function(data, status) {
@@ -16,10 +15,12 @@ $('form').submit(function(event) {
 
       newToken = data.token;
       action = data.action;
-      window.sessionStorage.setItem( 'token', newToken );
 
       alert('URL tracker is working.');
 
+      // Make second POST call to begin crawling. Attach JWT with short
+      // lifespan to prevent parallel crawling processes (expired JWTs
+      // won't repeat the process that's already running)
       $.post(
         '/api/' + action + '?token=' + newToken,
         function(data, status) {

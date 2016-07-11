@@ -22,5 +22,5 @@ module.exports = {
   private_key: process.env.private_key,
   secret: process.env.secret,
   doc_id: process.env.doc_id,
-  postmark_key: process.env.process_key
+  postmark_key: process.env.postmark_key
 };

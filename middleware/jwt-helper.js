@@ -7,8 +7,6 @@ auth = require('../config/auth.js');
 
 jwtHelper = {
   create: function(req, res, next) {
-console.log('TOKEN CREATE');
-
     var token;
 
     req.jwt = jwt.sign({action: req.action},
@@ -19,16 +17,21 @@ console.log('TOKEN CREATE');
   },
 
   check: function(req, res, next) {
-console.log('TOKEN CHECK');
-
     var token;
 
     token = req.body.token || req.query.token || req.headers['x-access-token'];
 
+    // If token exists and is valid, start crawling the website,
+    // otherwise return success = false to API call, preventing redundant
+    // calls creating multiple, parallel crawling processes
     if (token) {
       jwt.verify(token, auth.secret, function(err, decoded) {
         if (err) {
-          return res.json({success: false, message: 'Failed to authenticate token.'});
+          return res.json({
+            success: false,
+            message: 'Failed to authenticate token.'
+          });
+
         } else {
           return next();
         }
