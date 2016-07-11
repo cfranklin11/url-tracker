@@ -8,6 +8,7 @@ crawler = require('./crawler.js');
 
 sheetsHelper = self = {
 
+  // Start by getting the sheet by ID
   getSpreadsheet: function(req, res, next) {
     var doc;
 
@@ -15,9 +16,11 @@ sheetsHelper = self = {
     self.setAuth(req, res, next, doc);
   },
 
+  // Get auth credentials to make changes to sheet
   setAuth: function(req, res, next, doc) {
     var credsJson;
 
+    // Credentials obtained via environment variables imported to auth.js
     credsJson = {
       client_email: auth.client_email,
       private_key: auth.private_key
@@ -28,6 +31,7 @@ sheetsHelper = self = {
     });
   },
 
+  // Get correct sheet, depending on whether your reading or writing
   getWorksheets: function(req, res, next, doc) {
     doc.getInfo(function(err, data) {
       var sheet;
@@ -37,9 +41,11 @@ sheetsHelper = self = {
         return;
       }
 
+      // If you've already crawled, write rows to new URLs sheet
       if (req.pagesCrawled) {
         self.addChangedUrls(req, res, next, data);
 
+      // Otherwise, collect existing URLs to crawl
       } else {
         sheet = data.worksheets[1];
         self.getUrls(req, res, next, sheet);
@@ -47,6 +53,8 @@ sheetsHelper = self = {
     });
   },
 
+  // Collect array of URLs that you want to check
+  // (found in 'Existing URLs' sheet)
   getUrls: function(req, res, next, urlSheet) {
     var pagesToCrawl, thisRow;
 
@@ -88,22 +96,23 @@ sheetsHelper = self = {
     (function appendRow() {
       thisRow = newUrls.shift();
 
-      newUrlSheet.addRow(thisRow, function(err) {
-        if (err) {
-          console.log(err);
-          return next();
-        }
+      if (thisRow) {
+        newUrlSheet.addRow(thisRow, function(err) {
+          if (err) {
+            console.log(err);
+            return next();
+          }
 
-        if (newUrls.length === 0) {
-          self.addBrokenLinks(req, res, next, doc);
-        } else {
           if (newUrls.length % 500 === 0) {
             setTimeout(appendRow(), 0);
           } else {
             appendRow();
           }
-        }
-      });
+        });
+
+      } else {
+        self.addBrokenLinks(req, res, next, doc);
+      }
     })();
   },
 
@@ -143,22 +152,24 @@ sheetsHelper = self = {
         (function appendRow() {
           thisLink = brokenLinks.shift();
 
-          brokenLinkSheet.addRow(thisLink, function(err) {
-            if (err) {
-              console.log(err);
-              return next();
-            }
+          if (thisLink) {
+            brokenLinkSheet.addRow(thisLink, function(err) {
+              if (err) {
+                console.log(err);
+                return next();
+              }
 
-            if (brokenLinks.length === 0) {
-              self.getEmails(req, res, next, doc);
-            } else {
               if (brokenLinks.length % 500 === 0) {
                 setTimeout(appendRow(), 0);
+
               } else {
                 appendRow();
               }
-            }
-          });
+            });
+
+          } else {
+            self.getEmails(req, res, next, doc);
+          }
         })();
     });
   },
@@ -182,10 +193,14 @@ sheetsHelper = self = {
         console.log(rows);
 
         emailRow = rows[0].email_recipients;
-        emails = emailRow.split(/,\s*/g);
 
-        req.emailList = emails;
-        return next();
+        if (emailRow) {
+          emails = emailRow.split(/,\s*/g);
+          req.emailList = emails;
+
+        } else {
+          return next();
+        }
     });
   }
 };

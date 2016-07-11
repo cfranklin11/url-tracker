@@ -5,30 +5,36 @@ postmarkKey = auth.postmark_key;
 postmark = require('postmark');
 pmClient = new postmark.Client(postmarkKey);
 
-self = module.exports = {
+postmarkHelper = self = {
 
   sendNotification: function (req, res) {
     var receivers, receiversEmails;
 
-    receivers = req.emailList;
-    receiversEmails = receivers.join(', ');
+    if (req.emailList) {
+      receivers = req.emailList;
+      receiversEmails = receivers.join(', ');
 
-    pmClient.sendEmail({
-      'From': 'search.melbourne@mediacom.com',
-      'To': receiversEmails,
-      'Subject': 'Check URL Errors',
-      'TextBody': 'Check which URLs have changed, and which have errors here:' +
-        '\nhttps://docs.google.com/spreadsheets/d/' + auth.doc_id
-      },
-      function (err, to) {
-        if (err) {
-          console.log(err);
+      pmClient.sendEmail({
+        'From': 'search.melbourne@mediacom.com',
+        'To': receiversEmails,
+        'Subject': 'Check URL Errors',
+        'TextBody': 'Check which URLs have changed, and which have errors here:' +
+          '\nhttps://docs.google.com/spreadsheets/d/' + auth.doc_id
+        },
+        function (err, to) {
+          if (err) {
+            console.log(err);
+            return next();
+          }
+
+          console.log('Email sent to: ' + to);
           return next();
-        }
+      });
 
-        console.log('Email sent to: ' + to);
-        return next();
-      }
-    );
+    } else {
+      return next();
+    }
   }
 };
+
+module.exports = postmarkHelper;

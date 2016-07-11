@@ -81,6 +81,8 @@ crawler = self = {
           return next();
         }
 
+        console.log(pageUrl);
+
         // Add this page to 'pagesVisited', so you don't make repeat visits
         self.pagesVisited.push(pageUrl);
         pageStatus = response.statusCode;
