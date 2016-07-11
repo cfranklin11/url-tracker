@@ -18,7 +18,7 @@ sheetsHelper = self = {
 
     console.log(docId);
 
-    doc = new GoogleSpreadsheet(auth.doc_id);
+    doc = new GoogleSpreadsheet(docId);
     self.setAuth(req, res, next, doc);
   },
 
