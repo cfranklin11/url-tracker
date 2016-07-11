@@ -12,6 +12,8 @@ sheetsHelper = self = {
   getSpreadsheet: function(req, res, next) {
     var doc, docId;
 
+    // First option is to use ID entered into the form, then any environment
+    // variables
     docId = req.body.id || auth.doc_id;
 
     doc = new GoogleSpreadsheet(auth.doc_id);
@@ -46,13 +48,14 @@ sheetsHelper = self = {
       if (req.pagesCrawled) {
         self.addChangedUrls(req, res, next, info);
 
-      // Otherwise, collect existing URLs to crawl
+      // Otherwise, collect new/modified URLs to move to existing URLs
       } else {
         self.moveNewUrls(req, res, next, info);
       }
     });
   },
 
+  // Copy URLs from 'New/Modified URLs' over to 'Existing URLs'
   moveNewUrls: function(req, res, next, info) {
     var newUrlSheet;
 
@@ -70,6 +73,8 @@ sheetsHelper = self = {
           return next();
         }
 
+        // Rows array has a lot of extra data, so filter to get
+        // only URL and status code
         newUrlRows = rows.map(function(item) {
           return {
             url: item.url,
@@ -138,6 +143,7 @@ sheetsHelper = self = {
         return next();
       }
 
+      // Clear removes everything, so put back column labels
       newUrlSheet.setHeaderRow(
         ['page_url', 'link_url'],
         function(err) {
@@ -175,6 +181,7 @@ sheetsHelper = self = {
         return next();
       }
 
+      // Clear removes everything, so put back column labels
       brokenLinkSheet.setHeaderRow(
         ['page_url', 'link_url'],
         function(err) {

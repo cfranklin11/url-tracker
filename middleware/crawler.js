@@ -45,7 +45,7 @@ crawler = self = {
     thisPageToVisit = self.pagesToVisit[0];
     self.loopCount++;
 
-    if (thisPageToVisit && self.loopCount <= 20) {
+    if (thisPageToVisit && self.loopCount < 50) {
 
       // Periodically reset timeout to keep the crawler going
       if (self.loopCount % 500 === 1) {
@@ -84,8 +84,6 @@ crawler = self = {
           url: pageUrl,
           status: pageStatus.toString()
         };
-
-        console.log(pageUrl);
 
         // If the page doesn't exist on Current URLs sheet,
         // add it to 'changedPages'
