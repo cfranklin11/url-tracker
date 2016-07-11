@@ -176,6 +176,9 @@ sheetsHelper = self = {
                 return next();
               }
 
+              // Only send e-mail notification if new rows are added
+              req.notification = true;
+
               if (rowArray.length % 500 === 0) {
                 setTimeout(self.appendRow(sheet, thisArray, params, callback), 0);
 
@@ -200,28 +203,36 @@ sheetsHelper = self = {
     var infoSheet, emailRow, emails;
 
     infoSheet = doc.worksheets[0];
-    infoSheet.getRows(
-      {
-        offset: 1,
-        orderby: 'col2'
-      },
-      function(err, rows) {
-        if (err) {
-          console.log(err);
+
+    // Only send an e-mail if there are new URLs or broken links
+    if (req.notification) {
+      infoSheet.getRows(
+        {
+          offset: 1,
+          orderby: 'col2'
+        },
+        function(err, rows) {
+          if (err) {
+            console.log(err);
+            return next();
+          }
+
+          // **** NOTE: 'getRows' removes '_' from column names ****
+          emailRow = rows[0].emailrecipients;
+
+          if (emailRow) {
+
+            // Save e-mail list as array to pass on to Postmark
+            emails = emailRow.split(/,\s*/g);
+            req.emailList = emails;
+          }
           return next();
-        }
+      });
 
-        // **** NOTE: 'getRows' removes '_' from column names ****
-        emailRow = rows[0].emailrecipients;
-
-        if (emailRow) {
-
-          // Save e-mail list as array to pass on to Postmark
-          emails = emailRow.split(/,\s*/g);
-          req.emailList = emails;
-        }
-        return next();
-    });
+    } else {
+      console.log('No new info');
+      return next();
+    }
   }
 };
 

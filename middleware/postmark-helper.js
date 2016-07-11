@@ -7,10 +7,9 @@ pmClient = new postmark.Client(postmarkKey);
 
 postmarkHelper = self = {
 
+  // Send notification e-mail
   sendNotification: function (req, res, next) {
     var receivers, receiversEmails;
-
-    console.log(req.emailList)
 
     if (req.emailList) {
       receivers = req.emailList;
@@ -35,7 +34,7 @@ postmarkHelper = self = {
       });
 
     } else {
-      console.log('No e-mails');
+      console.log('No e-mail addresses');
       return next();
     }
   }
