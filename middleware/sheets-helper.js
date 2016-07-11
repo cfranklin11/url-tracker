@@ -26,13 +26,15 @@ sheetsHelper = self = {
   setAuth: function(req, res, next, doc) {
     var credsJson;
 
+    console.log(auth.private_key);
+
     // Credentials obtained via environment variables imported to auth.js
     credsJson = {
       client_email: auth.client_email,
-      private_key: auth.private_key.replace(/\\\\/g, "\\")
+      private_key: auth.private_key.replace(/\\\\n/g, '\\n');
     };
 
-    console.log(credsJson);
+    console.log(credsJson.private_key);
 
     doc.useServiceAccountAuth(credsJson, function() {
       self.getWorksheets(req, res, next, doc);
