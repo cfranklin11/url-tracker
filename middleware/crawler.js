@@ -45,7 +45,7 @@ crawler = self = {
     thisPageToVisit = self.pagesToVisit[0];
     self.loopCount++;
 
-    if (thisPageToVisit && self.loopCount <= 30) {
+    if (thisPageToVisit && self.loopCount <= 20) {
 
       // Periodically reset timeout to keep the crawler going
       if (self.loopCount % 500 === 1) {

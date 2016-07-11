@@ -34,7 +34,6 @@ sheetsHelper = self = {
   // Get correct sheet, depending on whether your reading or writing
   getWorksheets: function(req, res, next, doc) {
     doc.getInfo(function(err, data) {
-      var sheet;
 
       if (err) {
         console.log(err);
@@ -47,17 +46,51 @@ sheetsHelper = self = {
 
       // Otherwise, collect existing URLs to crawl
       } else {
-        sheet = data.worksheets[1];
-        self.getUrls(req, res, next, sheet);
+        self.moveNewUrls(req, res, next, data);
       }
+    });
+  },
+
+  moveNewUrls: function(req, res, next, doc) {
+    var newUrlSheet;
+
+    newUrlSheet = doc.getWorksheets[2];
+    newUrlSheet.getRows(
+      {
+        offset: 1,
+        orderby: 'col2'
+      },
+      function(err, rows) {
+        var newUrlRows, existingUrlSheet, params;
+
+        if (err) {
+          console.log(err);
+          return next();
+        }
+
+        newUrlRows = rows.map(function(item) {
+          return {
+            url: item.url,
+            status: item.status
+          };
+        });
+
+        existingUrlSheet = doc.getWorksheets[1];
+        params = {
+          req: req,
+          res: res,
+          next: next
+        };
+        self.appendRow(existingUrlSheet, newUrlRows, params, self.getUrls);
     });
   },
 
   // Collect array of URLs that you want to check
   // (found in 'Existing URLs' sheet)
-  getUrls: function(req, res, next, urlSheet) {
-    var pagesToCrawl, thisRow;
+  getUrls: function(req, res, next, doc) {
+    var urlSheet, pagesToCrawl, thisRow;
 
+    urlSheet = doc.getWorksheets[1];
     pagesToCrawl = [];
 
     urlSheet.getRows(
@@ -92,40 +125,73 @@ sheetsHelper = self = {
   // After crawling, add 'pagesCrawled' info to new URLs sheet
   // (only includes pages that have changed from those in 'Existing URLs')
   addChangedUrls: function(req, res, next, doc) {
-    var newUrlSheet, newUrls, params;
+    var newUrlSheet;
 
     newUrlSheet = doc.worksheets[2];
-    newUrls = req.pagesCrawled;
+    newUrlSheet.clear(function(err) {
 
-    params = {
-      req: req,
-      res: res,
-      next: next,
-      doc: doc
-    };
+      if (err) {
+        console.log(err);
+        return next();
+      }
 
-    // Add rows to new URL sheet, then go to 'addBrokenLinks'
-    self.appendRow(newUrlSheet, newUrls, params, self.addBrokenLinks);
+      newUrlSheet.setHeaderRows(
+        ['page_url', 'link_url'],
+        function(err) {
+          var params;
+
+          if (err) {
+            console.log(err);
+            return next();
+          }
+
+          params = {
+            req: req,
+            res: res,
+            next: next,
+            doc: doc
+          };
+
+          // Add rows to new URL sheet, then go to 'addBrokenLinks'
+          self.appendRow(newUrlSheet, req.pagesCrawled, params, self.addBrokenLinks);
+      });
+    });
   },
 
   // Add broken links info to 'Broken Links' sheet
   addBrokenLinks: function(req, res, next, doc) {
-    var brokenLinkSheet, brokenLinks, params;
+    var brokenLinkSheet;
 
     brokenLinkSheet = doc.worksheets[3];
-    brokenLinks = req.brokenLinks;
 
     // Clear previous broken links from the sheet
-    brokenLinkSheet.clear(function() {
-      params = {
-        req: req,
-        res: res,
-        next: next,
-        doc: doc
-      };
+    brokenLinkSheet.clear(function(err) {
 
-      // Add rows to broken links sheet, then go to 'getEmails'
-      self.appendRow(brokenLinkSheet, brokenLinks, params, self.getEmails);
+      if (err) {
+        console.log(err);
+        return next();
+      }
+
+      brokenLinkSheet.setHeaderRows(
+        ['page_url', 'link_url'],
+        function(err) {
+          var params;
+
+          if (err) {
+            console.log(err);
+            return next();
+          }
+
+          params = {
+            req: req,
+            res: res,
+            next: next,
+            doc: doc
+          };
+
+          // Add rows to broken links sheet, then go to 'getEmails'
+          self.appendRow(brokenLinkSheet, req.brokenLinks, params, self.getEmails);
+      });
     });
   },
 
@@ -141,6 +207,7 @@ sheetsHelper = self = {
           // If there's another row to add, add it and repeat 'appendRow'
           if (thisRow) {
             sheet.addRow(thisRow, function(err) {
+
               if (err) {
                 console.log(err);
                 return next();
