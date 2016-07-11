@@ -103,6 +103,8 @@ sheetsHelper = self = {
       next: next,
       doc: doc
     };
+
+    // Add rows to new URL sheet, then go to 'addBrokenLinks'
     self.appendRow(newUrlSheet, newUrls, params, self.addBrokenLinks);
   },
 
@@ -153,16 +155,20 @@ sheetsHelper = self = {
           next: next,
           doc: doc
         };
+
+        // Add rows to broken links sheet, then go to 'getEmails'
         self.appendRow(brokenLinkSheet, brokenLinks, params, self.getEmails);
     });
   },
 
+  // Function for adding rows to a given sheet
   appendRow: function(sheet, rowArray, params, callback) {
           var thisArray, thisRow, req, res, next, doc;
 
           thisArray = rowArray.slice(0);
           thisRow = thisArray.shift();
 
+          // If there's another row to add, add it and repeat 'appendRow'
           if (thisRow) {
             sheet.addRow(thisRow, function(err) {
               if (err) {
@@ -178,6 +184,7 @@ sheetsHelper = self = {
               }
             });
 
+          // Otherwise, invoke callback
           } else {
             req = params.req;
             res = params.res;
@@ -187,11 +194,12 @@ sheetsHelper = self = {
           }
   },
 
+  // Gets e-mail addresses listed in Google Sheets to send
+  // a notification e-mail
   getEmails: function(req, res, next, doc) {
     var infoSheet, emailRow, emails;
 
     infoSheet = doc.worksheets[0];
-
     infoSheet.getRows(
       {
         offset: 1,
@@ -207,12 +215,12 @@ sheetsHelper = self = {
         emailRow = rows[0].emailrecipients;
 
         if (emailRow) {
+
+          // Save e-mail list as array to pass on to Postmark
           emails = emailRow.split(/,\s*/g);
           req.emailList = emails;
-
-        } else {
-          return next();
         }
+        return next();
     });
   }
 };

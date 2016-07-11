@@ -29,7 +29,8 @@ postmarkHelper = self = {
             return next();
           }
 
-          console.log('E-mail sent to: ' + to);
+          console.log('E-mail sent to: ');
+          console.log(to);
           return next();
       });
 
