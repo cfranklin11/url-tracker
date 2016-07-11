@@ -16,6 +16,8 @@ sheetsHelper = self = {
     // variables
     docId = req.body.id || auth.doc_id;
 
+    console.log(docId);
+
     doc = new GoogleSpreadsheet(auth.doc_id);
     self.setAuth(req, res, next, doc);
   },
@@ -29,6 +31,8 @@ sheetsHelper = self = {
       client_email: auth.client_email,
       private_key: auth.private_key
     };
+
+    console.log(credsJson);
 
     doc.useServiceAccountAuth(credsJson, function() {
       self.getWorksheets(req, res, next, doc);
