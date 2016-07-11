@@ -145,7 +145,7 @@ sheetsHelper = self = {
 
       // Clear removes everything, so put back column labels
       newUrlSheet.setHeaderRow(
-        ['page_url', 'link_url'],
+        ['url', 'status'],
         function(err) {
           var params;
 

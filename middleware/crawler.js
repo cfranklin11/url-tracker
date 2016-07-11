@@ -45,6 +45,8 @@ crawler = self = {
     thisPageToVisit = self.pagesToVisit[0];
     self.loopCount++;
 
+    console.log(thisPageToVisit);
+
     if (thisPageToVisit && self.loopCount < 50) {
 
       // Periodically reset timeout to keep the crawler going
