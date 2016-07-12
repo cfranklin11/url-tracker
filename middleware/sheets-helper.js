@@ -16,8 +16,6 @@ sheetsHelper = self = {
     // variables
     docId = req.body.id || auth.doc_id;
 
-    console.log(docId);
-
     doc = new GoogleSpreadsheet(docId);
     self.setAuth(req, res, next, doc);
   },
@@ -26,23 +24,17 @@ sheetsHelper = self = {
   setAuth: function(req, res, next, doc) {
     var credsJson;
 
-    console.log(auth.private_key);
-
     // Credentials obtained via environment variables imported to auth.js
     credsJson = {
       client_email: auth.client_email,
-      private_key: auth.private_key.replace(/_/g, ' ')
+      private_key: auth.private_key
     };
-
-    console.log(credsJson.private_key);
 
     doc.useServiceAccountAuth(credsJson, function(err) {
       if (err) {
         console.log(err);
         return next();
       }
-
-      console.log('get auth');
 
       self.getWorksheets(req, res, next, doc);
     });
@@ -51,8 +43,6 @@ sheetsHelper = self = {
   // Get correct sheet, depending on whether your reading or writing
   getWorksheets: function(req, res, next, doc) {
     doc.getInfo(function(err, info) {
-
-      console.log('worksheet');
 
       if (err) {
         console.log(err);
@@ -73,8 +63,6 @@ sheetsHelper = self = {
   // Copy URLs from 'New/Modified URLs' over to 'Existing URLs'
   moveNewUrls: function(req, res, next, info) {
     var newUrlSheet;
-
-    console.log('move urls');
 
     newUrlSheet = info.worksheets[2];
     newUrlSheet.getRows(
@@ -114,8 +102,6 @@ sheetsHelper = self = {
   // (found in 'Existing URLs' sheet)
   getUrls: function(req, res, next, info) {
     var urlSheet, pagesToCrawl, thisRow;
-
-    console.log('get urls');
 
     urlSheet = info.worksheets[1];
     pagesToCrawl = [];

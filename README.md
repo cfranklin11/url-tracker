@@ -22,6 +22,7 @@ This app is meant for use by digital marketers who need to keep track of changes
 6. Push the app to your hosting service (I just use [Heroku](https://www.heroku.com/)).
 7. Create production environment variables that correspond with the env.json variables.
 ..* If using Heroku, how-to is [here](https://devcenter.heroku.com/articles/config-vars).
+..* IMPORTANT: When setting the Google API private_key in Heroku, save yourself (literally) hours of googling Stack Overflow by copying the key into a blank document, replacing the new-line characters ("\n") with literal line breaks, then copying that text to use as the private_key variable (be sure to enclose it in double-quotes).
 
 ## Running the App:
 
