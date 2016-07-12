@@ -31,12 +31,19 @@ sheetsHelper = self = {
     // Credentials obtained via environment variables imported to auth.js
     credsJson = {
       client_email: auth.client_email,
-      private_key: auth.private_key.replace(/\\\\n/g, '\\n')
+      private_key: auth.private_key
     };
 
     console.log(credsJson.private_key);
 
-    doc.useServiceAccountAuth(credsJson, function() {
+    doc.useServiceAccountAuth(credsJson, function(err) {
+      if (err) {
+        console.log(err);
+        return next();
+      }
+
+      console.log('get auth');
+
       self.getWorksheets(req, res, next, doc);
     });
   },
