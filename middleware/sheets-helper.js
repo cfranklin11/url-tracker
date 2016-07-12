@@ -14,7 +14,7 @@ sheetsHelper = self = {
 
     // First option is to use ID entered into the form, then any environment
     // variables
-    docId = req.body.id || auth.doc_id;
+    docId = req.body;
 
     doc = new GoogleSpreadsheet(docId);
     self.setAuth(req, res, next, doc);
@@ -33,7 +33,7 @@ sheetsHelper = self = {
     doc.useServiceAccountAuth(credsJson, function(err) {
       if (err) {
         console.log(err);
-        return next();
+        return res.send(err);
       }
 
       self.getWorksheets(req, res, next, doc);
@@ -44,9 +44,13 @@ sheetsHelper = self = {
   getWorksheets: function(req, res, next, doc) {
     doc.getInfo(function(err, info) {
 
+      if (!info) {
+        return res.status(400).send('The Google Sheets ID was invalid.');
+      }
+
       if (err) {
         console.log(err);
-        return;
+        return res.status(400).send(err);
       }
 
       // If you've already crawled, write rows to new URLs sheet
@@ -212,39 +216,39 @@ sheetsHelper = self = {
 
   // Function for adding rows to a given sheet
   appendRow: function(sheet, rowArray, params, callback) {
-          var thisArray, thisRow, req, res, next, info;
+    var thisArray, thisRow, req, res, next, info;
 
-          thisArray = rowArray.slice(0);
-          thisRow = thisArray.shift();
-          next = params.next;
-          req = params.req;
+    thisArray = rowArray.slice(0);
+    thisRow = thisArray.shift();
+    next = params.next;
+    req = params.req;
 
-          // If there's another row to add, add it and repeat 'appendRow'
-          if (thisRow) {
-            sheet.addRow(thisRow, function(err) {
+    // If there's another row to add, add it and repeat 'appendRow'
+    if (thisRow) {
+      sheet.addRow(thisRow, function(err) {
 
-              if (err) {
-                console.log(err);
-                return next();
-              }
+        if (err) {
+          console.log(err);
+          return next();
+        }
 
-              // Only send e-mail notification if new rows are added
-              req.notification = true;
+        // Only send e-mail notification if new rows are added
+        req.notification = true;
 
-              if (rowArray.length % 500 === 0) {
-                setTimeout(self.appendRow(sheet, thisArray, params, callback), 0);
+        if (rowArray.length % 500 === 0) {
+          setTimeout(self.appendRow(sheet, thisArray, params, callback), 0);
 
-              } else {
-                self.appendRow(sheet, thisArray, params, callback);
-              }
-            });
+        } else {
+          self.appendRow(sheet, thisArray, params, callback);
+        }
+      });
 
-          // Otherwise, invoke callback
-          } else {
-            res = params.res;
-            info = params.info;
-            callback(req, res, next, info);
-          }
+    // Otherwise, invoke callback
+    } else {
+      res = params.res;
+      info = params.info;
+      callback(req, res, next, info);
+    }
   },
 
   // Gets e-mail addresses listed in Google Sheets to send

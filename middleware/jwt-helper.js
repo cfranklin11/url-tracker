@@ -9,7 +9,7 @@ jwtHelper = {
   create: function(req, res, next) {
     var token;
 
-    req.jwt = jwt.sign({action: req.action},
+    req.jwt = jwt.sign({action: 'crawl'},
       auth.secret,
       {expiresIn: 30}
     );
@@ -39,8 +39,8 @@ jwtHelper = {
 
     } else {
       return res.status(403).send({
-          success: false,
-          message: 'No token provided.'
+        success: false,
+        message: 'No token provided.'
       });
     }
   }

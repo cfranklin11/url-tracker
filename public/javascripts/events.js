@@ -15,19 +15,18 @@ $('form').submit(function(event) {
 
       newToken = data.token;
       action = data.action;
-
-      alert('URL tracker is working.');
+      alert('URL tracker is running.');
 
       // Make second POST call to begin crawling. Attach JWT with short
       // lifespan to prevent parallel crawling processes (expired JWTs
       // won't repeat the process that's already running)
       $.post(
-        '/api/' + action + '?token=' + newToken,
+        '/api/crawl?token=' + newToken,
+        form.serialize(),
         function(data, status) {
-          console.log(status);
         })
         .fail(function(jq, status, error) {
-          console.log(error);
+          alert(jq.responseText);
         });
     })
     .fail(function(jq, status, error) {

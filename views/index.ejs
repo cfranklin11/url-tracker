@@ -7,11 +7,12 @@
   <body>
     <h1>Webpage URL Tracker</h1>
 
-    <form method="post" action="/api/token/crawl">
+    <form method="post" action="/api/token">
+      <label for="sheet-id">Enter the Google Sheets ID</label>
       <% if (docId) { %>
-        <input type="text" name="id" value="<%= docId %>">
+        <input type="text" name="sheet" id="sheet-id" value="<%= docId %>" required>
       <% } else { %>
-        <input type="text" name="id" value="" placeholder="Google Sheets ID">
+        <input type="text" name="sheet" id="sheet-id" value="" placeholder="Google Sheets ID" required>
       <% } %>
       <input type="submit" value="Crawl, baby, crawl!">
     </form>

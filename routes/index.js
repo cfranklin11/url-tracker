@@ -9,11 +9,6 @@ sheets = require('../middleware/sheets-helper.js');
 jwtHelper = require('../middleware/jwt-helper.js');
 postmarkHelper = require('../middleware/postmark-helper.js')
 
-router.param('action', function(req, res, next, action) {
-  req.action = action;
-  next();
-});
-
 router.get('/', function(req, res, next) {
   res.render('index', {
     title: 'Express',
@@ -22,13 +17,13 @@ router.get('/', function(req, res, next) {
 });
 
 // Start by creating a Javascript Web Tokein (JWT) and sending it to client
-router.post('/api/token/:action',
+router.post('/api/token',
   jwtHelper.create, //Creates JWT
   function(req, res, next) {
     res.json({
       success: true,
       token: req.jwt,
-      action: req.action
+      action: 'crawl'
     });
 });
 
