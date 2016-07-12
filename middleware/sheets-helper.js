@@ -31,7 +31,7 @@ sheetsHelper = self = {
     // Credentials obtained via environment variables imported to auth.js
     credsJson = {
       client_email: auth.client_email,
-      private_key: auth.private_key
+      private_key: auth.private_key.replace(/_/g, ' ')
     };
 
     console.log(credsJson.private_key);
