@@ -7,7 +7,7 @@ This app is meant for use by digital marketers who need to keep track of changes
 ## Setup:
 1. Initialize your own version of this Git repo.
 2. Copy the [Google Sheets template](https://docs.google.com/spreadsheets/d/1aeca_gGQUFudhYY-h1zOgNhu-ku8BycCEjmyxLw9bbo/edit?usp=sharing).
-3. Use example.env.json to safely import the necessary secrets, IDs, and keys.
+3. Use example.env.json to safely import the necessary secrets, IDs, and keys (be sure to change the name to '.env.json').
 4. Get Google API credentials.
   1. Go to the [Google API Console](https://console.developers.google.com/apis/library).
   2. Create a new project.
