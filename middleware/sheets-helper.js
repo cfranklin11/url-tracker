@@ -14,7 +14,7 @@ sheetsHelper = self = {
 
     // First option is to use ID entered into the form, then any environment
     // variables
-    docId = req.body;
+    docId = req.body.sheet;
 
     doc = new GoogleSpreadsheet(docId);
     self.setAuth(req, res, next, doc);
