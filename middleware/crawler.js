@@ -48,7 +48,7 @@ crawler = self = {
     if (thisPageToVisit) {
 
       // Periodically reset timeout to keep the crawler going
-      if (self.loopCount % 500 === 1) {
+      if (self.loopCount % 500 === 0) {
         setTimeout(function() {
           self.requestPage(req, res, next, thisPageToVisit);
         }, 0);
@@ -101,8 +101,9 @@ crawler = self = {
         // Remove the URL from 'pagesToVisit'
         self.pagesToVisit.shift();
 
-        // If the page is working, collect links for other pages
-        if (pageStatus === 200) {
+        // If the page is working & the body is html,
+        // collect links for other pages
+        if (pageStatus === 200 && /<html>/.test(body)) {
           self.collectLinks(req, res, next, pageUrl, body);
 
         } else {
@@ -118,7 +119,7 @@ crawler = self = {
   // Scrape page for internal links to add to 'pagesToVisit'
   collectLinks: function(req, res, next, pageUrl, body) {
     var $, relativeLinks, absoluteLinks, urlObj, domainBaseUrl, domainRegExp,
-      pageRegExp, linksArray, i, linkRef, linkUrl, linkObj, thisLink;
+      pageRegExp, typeRegExp, linksArray, i, linkRef, linkUrl, linkObj, thisLink;
 
     $ = cheerio.load(body);
     relativeLinks = $('a[href^="/"]'); // Collect relative links on page
@@ -126,7 +127,8 @@ crawler = self = {
     urlObj = new urlParse(pageUrl);
     domainBaseUrl = urlObj.protocol + '//' + urlObj.hostname;
     domainRegExp = new RegExp(domainBaseUrl);
-    pageRegExp = /permalink|\.pdf|visited-locations|transcripts|news/i;
+    pageRegExp = /permalink|visited-locations|transcripts|news/i;
+    typeRegExp = /\.zip|\.doc|\.ppt|\.csv|\.xls|\.jpg|\.ash|\.png/i;
     linksArray = [];
 
     // Collect URLs from relative links and add current domain to complete
@@ -138,7 +140,7 @@ crawler = self = {
 
       // Filter out forum posts, PDFs, video/audio transcripts, and news items
       // to cut down on unnecessary page tracking
-      if (!pageRegExp.test(linkUrl)) {
+      if (!pageRegExp.test(linkUrl) && !typeRegExp.test(linkUrl)) {
         linksArray.push(linkUrl);
       }
     }
@@ -147,8 +149,9 @@ crawler = self = {
     for (i = 0; i < absoluteLinks.length; i++) {
       linkRef = $(absoluteLinks[i]).attr('href');
 
-      if (domainRegExp.test(linkRef) && !pageRegExp.test(linkRef)) {
-        linksArray.push(linkRef);
+      if (domainRegExp.test(linkRef) && !pageRegExp.test(linkRef) &&
+        !typeRegExp.test(linkRef)) {
+          linksArray.push(linkRef);
       }
     }
 
