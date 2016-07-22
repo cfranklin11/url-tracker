@@ -145,8 +145,6 @@ sheetsHelper = self = {
   addChangedUrls: function(req, res, next, info) {
     var newUrlSheet;
 
-    console.log('add changed urls');
-
     newUrlSheet = info.worksheets[2];
     newUrlSheet.clear(function(err) {
 
