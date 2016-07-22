@@ -32,7 +32,7 @@ sheetsHelper = self = {
 
     doc.useServiceAccountAuth(credsJson, function(err) {
       if (err) {
-        console.log('use service account ' + err);
+        console.log(err);
         return res.send(err);
       }
 
@@ -56,8 +56,6 @@ sheetsHelper = self = {
       // If you've already crawled, write rows to new URLs sheet
       if (req.pagesCrawled) {
         setTimeout(function() {
-
-          console.log('reset worksheet');
 
           self.addChangedUrls(req, res, next, info);
         }, 0);
@@ -124,7 +122,7 @@ sheetsHelper = self = {
         var i;
 
         if (err) {
-          console.log('get rows' + err);
+          console.log(err);
           return next();
         }
 
@@ -148,8 +146,6 @@ sheetsHelper = self = {
   // (only includes pages that have changed from those in 'Existing URLs')
   addChangedUrls: function(req, res, next, info) {
     var newUrlSheet;
-
-    console.log('new URLs');
 
     newUrlSheet = info.worksheets[2];
     newUrlSheet.clear(function(err) {

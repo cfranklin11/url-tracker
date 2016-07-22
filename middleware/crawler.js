@@ -51,8 +51,6 @@ crawler = self = {
       if (self.loopCount % 10 === 0) {
         setTimeout(function() {
 
-          console.log('reset ' + self.loopCount);
-
           self.requestPage(req, res, next, thisPageToVisit);
         }, 0);
 
@@ -115,6 +113,8 @@ crawler = self = {
       });
 
     } else {
+      // Remove the URL from 'pagesToVisit'
+      self.pagesToVisit.shift();
       self.continue(req, res, next);
     }
   },

@@ -15,7 +15,8 @@ $('form').submit(function(event) {
 
       newToken = data.token;
       action = data.action;
-      alert('URL tracker is running.');
+      alert('URL tracker is running. If there are any changes or ' +
+        'broken links, you will receive an e-mail.');
 
       // Make second POST call to begin crawling. Attach JWT with short
       // lifespan to prevent parallel crawling processes (expired JWTs
