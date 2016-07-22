@@ -82,7 +82,7 @@ sheetsHelper = self = {
 
         if (err) {
           console.log(err);
-          return next();
+          // return next();
         }
 
         // Rows array has a lot of extra data, so filter to get
@@ -123,7 +123,7 @@ sheetsHelper = self = {
 
         if (err) {
           console.log(err);
-          return next();
+          // return next();
         }
 
         // Push all rows of 'Existing URLs' into 'pagesToCrawl' for use
@@ -152,7 +152,7 @@ sheetsHelper = self = {
 
       if (err) {
         console.log(err);
-        return next();
+        // return next();
       }
 
       // Clear removes everything, so put back column labels
@@ -163,7 +163,7 @@ sheetsHelper = self = {
 
           if (err) {
             console.log(err);
-            return next();
+            // return next();
           }
 
           params = {
@@ -190,7 +190,7 @@ sheetsHelper = self = {
 
       if (err) {
         console.log(err);
-        return next();
+        // return next();
       }
 
       // Clear removes everything, so put back column labels
@@ -201,7 +201,7 @@ sheetsHelper = self = {
 
           if (err) {
             console.log(err);
-            return next();
+            // return next();
           }
 
           params = {
@@ -232,7 +232,7 @@ sheetsHelper = self = {
 
         if (err) {
           console.log(err);
-          return next();
+          // return next();
         }
 
         // Only send e-mail notification if new rows are added
@@ -271,7 +271,7 @@ sheetsHelper = self = {
         function(err, rows) {
           if (err) {
             console.log(err);
-            return next();
+            // return next();
           }
 
           // **** NOTE: 'getRows' removes '_' from column names ****

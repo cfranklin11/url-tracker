@@ -77,7 +77,7 @@ crawler = self = {
 
         if (error) {
           console.log(error);
-          return next();
+          // return next();
         }
 
         pageStatus = response.statusCode;
