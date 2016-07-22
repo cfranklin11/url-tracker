@@ -18,6 +18,7 @@ if (fs.existsSync(envFile)) {
 }
 
 module.exports = {
+  workers: process.env.web_concurrency || 1,
   client_email: process.env.client_email,
   private_key: process.env.private_key.replace(/_/g, ' '),
   secret: process.env.secret,

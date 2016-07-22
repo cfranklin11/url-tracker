@@ -235,7 +235,7 @@ sheetsHelper = self = {
         // Only send e-mail notification if new rows are added
         req.notification = true;
 
-        if (rowArray.length % 500 === 0) {
+        if (rowArray.length % 10 === 0) {
           setTimeout(self.appendRow(sheet, thisArray, params, callback), 0);
 
         } else {

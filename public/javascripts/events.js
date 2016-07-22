@@ -26,7 +26,9 @@ $('form').submit(function(event) {
         function(data, status) {
         })
         .fail(function(jq, status, error) {
-          alert('URL tracker has the following error: ' + error);
+          if (/40\d/.test(status)) {
+            alert('URL tracker has the following error: ' + error);
+          }
         });
     })
     .fail(function(jq, status, error) {

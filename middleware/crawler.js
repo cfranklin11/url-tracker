@@ -48,8 +48,11 @@ crawler = self = {
     if (thisPageToVisit) {
 
       // Periodically reset timeout to keep the crawler going
-      if (self.loopCount % 500 === 0) {
+      if (self.loopCount % 10 === 0) {
         setTimeout(function() {
+
+          console.log('reset ' + self.loopCount);
+
           self.requestPage(req, res, next, thisPageToVisit);
         }, 0);
 
@@ -73,8 +76,6 @@ crawler = self = {
     if (self.pagesVisited.indexOf(pageUrl) === -1) {
       request(pageUrl, function(error, response, body) {
         var pageStatus, pageObj, urlIndex;
-
-        console.log(pageUrl);
 
         if (error) {
           console.log(error);
