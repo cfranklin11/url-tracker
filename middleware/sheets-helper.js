@@ -32,7 +32,7 @@ sheetsHelper = self = {
 
     doc.useServiceAccountAuth(credsJson, function(err) {
       if (err) {
-        console.log(err);
+        console.log('use service account ' + err);
         return res.send(err);
       }
 
@@ -124,7 +124,7 @@ sheetsHelper = self = {
         var i;
 
         if (err) {
-          console.log(err);
+          console.log('get rows' + err);
           return next();
         }
 
