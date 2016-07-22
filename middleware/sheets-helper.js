@@ -55,7 +55,12 @@ sheetsHelper = self = {
 
       // If you've already crawled, write rows to new URLs sheet
       if (req.pagesCrawled) {
-        self.addChangedUrls(req, res, next, info);
+        setTimeout(function() {
+
+          console.log('reset worksheet');
+
+          self.addChangedUrls(req, res, next, info);
+        }, 0);
 
       // Otherwise, collect new/modified URLs to move to existing URLs
       } else {
@@ -143,6 +148,8 @@ sheetsHelper = self = {
   // (only includes pages that have changed from those in 'Existing URLs')
   addChangedUrls: function(req, res, next, info) {
     var newUrlSheet;
+
+    console.log('new URLs');
 
     newUrlSheet = info.worksheets[2];
     newUrlSheet.clear(function(err) {
