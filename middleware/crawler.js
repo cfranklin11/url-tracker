@@ -71,7 +71,7 @@ crawler = self = {
   requestPage: function(req, res, next, pageUrl) {
 
     // Only request the page if you haven't visited it yet
-    if (self.pagesVisited.indexOf(pageUrl) === -1) {
+    if (pageUrl && self.pagesVisited.indexOf(pageUrl) === -1) {
       request(pageUrl, function(error, response, body) {
         var pageStatus, pageObj, urlIndex;
 

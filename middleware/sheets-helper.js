@@ -92,9 +92,9 @@ sheetsHelper = self = {
       var rowsArray, thisRow;
 
       rowsArray = rows.slice(0);
+      // Use last element, because row.del() will remove bottom row
+      // with same url/status
       thisRow = rowsArray.slice(rowsArray.length - 1)[0];
-
-      console.log(thisRow.url, thisRow.status, thisRow.id);
 
       // Delete rows without URLS, then call modifyRow again,
       // or moveNewUrls if no more rows
@@ -103,8 +103,6 @@ sheetsHelper = self = {
           if (err) {
             console.log(err);
           }
-
-          console.log('delete');
 
           rowsArray.pop();
 
