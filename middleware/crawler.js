@@ -161,7 +161,7 @@ crawler = self = {
 
     // Loop through all relevant URLs, pushing them to page arrays
     for (i = 0; i < linksArray.length; i++) {
-      thisLink = linksArray[i];
+      thisLink = linksArray[i].replace(/\/$/, '');
 
       // If the URL is in 'errorPages' and not 'brokenLinks',
       // add it to 'brokenLinks'

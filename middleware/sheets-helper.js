@@ -60,11 +60,87 @@ sheetsHelper = self = {
           self.addChangedUrls(req, res, next, info);
         }, 0);
 
-      // Otherwise, collect new/modified URLs to move to existing URLs
+      // Otherwise, delete blank URL rows
       } else {
-        self.moveNewUrls(req, res, next, info);
+        self.modifyErrorRows(req, res, next, info);
       }
     });
+  },
+
+
+  // Function for deleting rows that are missing URLs and adding status 200
+  // to rows without statuses
+  modifyErrorRows: function(req, res, next, info) {
+    var sheet;
+
+    sheet = info.worksheets[1];
+
+    sheet.getRows({
+        offset: 1,
+        orderby: 'col2'
+      },
+      function(err, rows) {
+        if (err) {
+          console.log(err);
+        }
+
+        modifyRow(rows);
+    });
+
+    // Function for modifying rows that can cause errors
+    function modifyRow(rows) {
+      var rowsArray, thisRow;
+
+      rowsArray = rows.slice(0);
+      thisRow = rowsArray.slice(rowsArray.length - 1)[0];
+
+      console.log(thisRow.url, thisRow.status, thisRow.id);
+
+      // Delete rows without URLS, then call modifyRow again,
+      // or moveNewUrls if no more rows
+      if (!thisRow.url) {
+        thisRow.del(function(err) {
+          if (err) {
+            console.log(err);
+          }
+
+          console.log('delete');
+
+          rowsArray.pop();
+
+          if (rowsArray.length > 0) {
+            modifyRow(rowsArray);
+          } else {
+            self.moveNewUrls(req, res, next, info);
+          }
+        });
+      // Add '200' to rows with empty statuses
+      } else if (!thisRow.status) {
+        thisRow.status = '200';
+        thisRow.save(function(err) {
+          if (err) {
+            console.log(err);
+          }
+
+          rowsArray.pop();
+
+          if (rowsArray.length > 0) {
+            modifyRow(rowsArray);
+          } else {
+            self.moveNewUrls(req, res, next, info);
+          }
+        });
+      // If row is complete, call modify Row again
+      } else {
+        rowsArray.pop();
+
+        if (rowsArray.length > 0) {
+          modifyRow(rowsArray);
+        } else {
+          self.moveNewUrls(req, res, next, info);
+        }
+      }
+    }
   },
 
   // Copy URLs from 'New/Modified URLs' over to 'Existing URLs'
@@ -107,10 +183,9 @@ sheetsHelper = self = {
   // Collect array of URLs that you want to check
   // (found in 'Existing URLs' sheet)
   getUrls: function(req, res, next, info) {
-    var urlSheet, pagesToCrawl, thisRow;
+    var urlSheet, pagesToCrawl;
 
     urlSheet = info.worksheets[1];
-    pagesToCrawl = [];
 
     urlSheet.getRows(
       {
@@ -118,22 +193,20 @@ sheetsHelper = self = {
         orderby: 'col2'
       },
       function(err, rows) {
-        var i;
-
         if (err) {
           console.log(err);
         }
 
         // Push all rows of 'Existing URLs' into 'pagesToCrawl' for use
         // by crawler.js
-        for (i = 0; i < rows.length; i++) {
-          thisRow = rows[i];
-
-          pagesToCrawl.push({
-            url: thisRow.url,
-            status: thisRow.status
-          });
-        }
+        pagesToCrawl = rows.map(function(row) {
+          if (row.url) {
+            return {
+              url: row.url.replace(/\/$/, ''),
+              status: row.status
+            };
+          }
+        });
 
         req.pagesToCrawl = pagesToCrawl;
         return next();
