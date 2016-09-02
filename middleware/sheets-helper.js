@@ -291,8 +291,6 @@ sheetsHelper = self = {
     next = params.next;
     req = params.req;
 
-    console.log(thisRow);
-
     // If there's another row to add, add it and repeat 'appendRow'
     if (thisRow) {
       sheet.addRow(thisRow, function(err) {

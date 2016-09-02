@@ -75,8 +75,6 @@ crawler = self = {
       request(pageUrl, function(error, response, body) {
         var pageStatus, pageObj, urlIndex;
 
-        console.log(pageUrl);
-
         if (error) {
           console.log(error);
         }
