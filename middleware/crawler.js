@@ -28,12 +28,14 @@ crawler = self = {
     for (i = 0; i < urlRows.length; i++) {
       thisUrl = urlRows[i].url;
       thisStatus = urlRows[i].status;
+
       self.pagesToVisit.push(thisUrl);
 
       if (/40\d/.test(thisStatus)) {
         self.errorPages.push(thisUrl);
       }
     }
+
     self.continue(req, res, next);
   },
 
@@ -46,11 +48,9 @@ crawler = self = {
     self.loopCount++;
 
     if (thisPageToVisit) {
-
       // Periodically reset timeout to keep the crawler going
-      if (self.loopCount % 10 === 0) {
+      if (self.loopCount % 200 === 0) {
         setTimeout(function() {
-
           self.requestPage(req, res, next, thisPageToVisit);
         }, 0);
 
@@ -103,7 +103,10 @@ crawler = self = {
 
         // If the page is working & the body is html,
         // collect links for other pages
-        if (pageStatus === 200 && /<html>/.test(body)) {
+        if (parseFloat(pageStatus) === 200 && /<?\/?html>/.test(body)) {
+
+          console.log(pageUrl);
+
           self.collectLinks(req, res, next, pageUrl, body);
 
         } else {
@@ -140,8 +143,8 @@ crawler = self = {
       linkRef = linkRef === '/' ? '' : linkRef;
       linkUrl = domainBaseUrl + linkRef;
 
-      // Filter out forum posts, PDFs, video/audio transcripts, and news items
-      // to cut down on unnecessary page tracking
+      // Filter out forum posts, some file types, video/audio transcripts,
+      // and news items to cut down on unnecessary page tracking
       if (!pageRegExp.test(linkUrl) && !typeRegExp.test(linkUrl)) {
         linksArray.push(linkUrl);
       }

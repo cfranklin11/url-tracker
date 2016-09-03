@@ -94,7 +94,7 @@ sheetsHelper = self = {
       rowsArray = rows.slice(0);
       // Use last element, because row.del() will remove bottom row
       // with same url/status
-      thisRow = rowsArray.slice(rowsArray.length - 1)[0];
+      thisRow = rowsArray.pop();
 
       // Delete rows without URLS, then call modifyRow again,
       // or moveNewUrls if no more rows
@@ -104,46 +104,59 @@ sheetsHelper = self = {
             console.log(err);
           }
 
-          rowsArray.pop();
-
           if (rowsArray.length > 0) {
-            modifyRow(rowsArray);
+            resetTimer(rowsArray);
           } else {
             self.moveNewUrls(req, res, next, info);
           }
         });
+
       // Add '200' to rows with empty statuses
       } else if (!thisRow.status) {
-        thisRow.status = '200';
+        thisRow.status = 200;
         thisRow.save(function(err) {
           if (err) {
             console.log(err);
           }
 
-          rowsArray.pop();
-
           if (rowsArray.length > 0) {
-            modifyRow(rowsArray);
+            resetTimer(rowsArray);
           } else {
             self.moveNewUrls(req, res, next, info);
           }
         });
+
       // If row is complete, call modify Row again
       } else {
-        rowsArray.pop();
-
         if (rowsArray.length > 0) {
-          modifyRow(rowsArray);
+          resetTimer(rowsArray);
         } else {
           self.moveNewUrls(req, res, next, info);
         }
+      }
+    }
+
+    // Reset timer every 200 rows to avoid timeout error
+    function resetTimer(rowsArray) {
+      if (rowsArray.length % 200 === 0) {
+        setTimeout(modifyRow(rowsArray), 0);
+      } else {
+        modifyRow(rowsArray);
       }
     }
   },
 
   // Copy URLs from 'New/Modified URLs' over to 'Existing URLs'
   moveNewUrls: function(req, res, next, info) {
-    var newUrlSheet;
+    var newUrlSheet, existingUrlSheet, params;
+
+    existingUrlSheet = info.worksheets[1];
+    params = {
+      req: req,
+      res: res,
+      next: next,
+      info: info
+    };
 
     newUrlSheet = info.worksheets[2];
     newUrlSheet.getRows(
@@ -152,7 +165,7 @@ sheetsHelper = self = {
         orderby: 'col2'
       },
       function(err, rows) {
-        var newUrlRows, existingUrlSheet, params;
+        var newUrlRows;
 
         if (err) {
           console.log(err);
@@ -167,14 +180,28 @@ sheetsHelper = self = {
           };
         });
 
-        existingUrlSheet = info.worksheets[1];
-        params = {
-          req: req,
-          res: res,
-          next: next,
-          info: info
-        };
-        self.appendRow(existingUrlSheet, newUrlRows, params, self.getUrls);
+        newUrlSheet.clear(function(err) {
+          if (err) {
+            console.log(err);
+          }
+
+          // Clear removes everything, so put back column labels
+          newUrlSheet.setHeaderRow(
+            ['url', 'status'],
+            function(err) {
+
+              if (err) {
+                console.log(err);
+              }
+
+              self.appendRow(
+                existingUrlSheet,
+                newUrlRows,
+                params,
+                self.getUrls
+              );
+          });
+        });
     });
   },
 
@@ -214,36 +241,18 @@ sheetsHelper = self = {
   // After crawling, add 'pagesCrawled' info to new URLs sheet
   // (only includes pages that have changed from those in 'Existing URLs')
   addChangedUrls: function(req, res, next, info) {
-    var newUrlSheet;
+    var newUrlSheet, params;
 
     newUrlSheet = info.worksheets[2];
-    newUrlSheet.clear(function(err) {
+    params = {
+      req: req,
+      res: res,
+      next: next,
+      info: info
+    };
 
-      if (err) {
-        console.log(err);
-      }
-
-      // Clear removes everything, so put back column labels
-      newUrlSheet.setHeaderRow(
-        ['url', 'status'],
-        function(err) {
-          var params;
-
-          if (err) {
-            console.log(err);
-          }
-
-          params = {
-            req: req,
-            res: res,
-            next: next,
-            info: info
-          };
-
-          // Add rows to new URL sheet, then go to 'addBrokenLinks'
-          self.appendRow(newUrlSheet, req.pagesCrawled, params, self.addBrokenLinks);
-      });
-    });
+    // Add rows to new URL sheet, then go to 'addBrokenLinks'
+    self.appendRow(newUrlSheet, req.pagesCrawled, params, self.addBrokenLinks);
   },
 
   // Add broken links info to 'Broken Links' sheet
@@ -283,10 +292,10 @@ sheetsHelper = self = {
   },
 
   // Function for adding rows to a given sheet
-  appendRow: function(sheet, rowArray, params, callback) {
+  appendRow: function(sheet, rowsArray, params, callback) {
     var thisArray, thisRow, req, res, next, info;
 
-    thisArray = rowArray.slice(0);
+    thisArray = rowsArray.slice(0);
     thisRow = thisArray.shift();
     next = params.next;
     req = params.req;
@@ -302,7 +311,7 @@ sheetsHelper = self = {
         // Only send e-mail notification if new rows are added
         req.notification = true;
 
-        if (rowArray.length % 10 === 0) {
+        if (rowsArray.length % 200 === 0) {
           setTimeout(self.appendRow(sheet, thisArray, params, callback), 0);
 
         } else {
