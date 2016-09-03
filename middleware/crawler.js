@@ -104,9 +104,6 @@ crawler = self = {
         // If the page is working & the body is html,
         // collect links for other pages
         if (parseFloat(pageStatus) === 200 && /<?\/?html>/.test(body)) {
-
-          console.log(pageUrl);
-
           self.collectLinks(req, res, next, pageUrl, body);
 
         } else {
@@ -162,7 +159,7 @@ crawler = self = {
 
     // Loop through all relevant URLs, pushing them to page arrays
     for (i = 0; i < linksArray.length; i++) {
-      thisLink = linksArray[i].replace(/\/$/, '');
+      thisLink = linksArray[i].replace(/\?.*/, '').replace(/\/$/, '');
 
       // If the URL is in 'errorPages' and not 'brokenLinks',
       // add it to 'brokenLinks'
