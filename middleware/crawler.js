@@ -85,6 +85,8 @@ crawler = self = {
           status: pageStatus.toString()
         };
 
+        console.log(pageObj);
+
         // If the page doesn't exist on Current URLs sheet,
         // add it to 'changedPages'
         urlIndex = req.pagesToCrawl.findIndex(function(item) {
