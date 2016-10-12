@@ -1,12 +1,12 @@
 'use strict';
 
-var fs, env, envFile;
-
-fs = require('fs');
-env = {};
+import path from 'path';
+import fs from 'fs';
+let env = {};
+let envFile;
 
 if (!process.env.client_email || !process.env.private_key) {
-  envFile = __dirname + '/env.json';
+  envFile = path.join(__dirname, '../../src/config/env.json');
 }
 
 if (fs.existsSync(envFile)) {
@@ -17,11 +17,12 @@ if (fs.existsSync(envFile)) {
   });
 }
 
-module.exports = {
-  workers: process.env.web_concurrency || 1,
+const configAuth = {
   client_email: process.env.client_email,
   private_key: process.env.private_key.replace(/_/g, ' '),
   secret: process.env.secret,
   doc_id: process.env.doc_id,
   postmark_key: process.env.postmark_key
 };
+
+export default configAuth;
