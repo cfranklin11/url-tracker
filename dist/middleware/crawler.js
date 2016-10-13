@@ -142,31 +142,7 @@ function collectLinks(req, res, next, pageUrl, body) {
 
   // Collect URLs from relative links and add current domain to complete
   // the URL
-  console.log($('a[href^="/"]').attr('href'));
-
-  var relativeLinks = $('a[href^="/"]').filter(function (link) {
-    var linkRef = $(link).attr('href');
-
-    // Filter out forum posts, some file types, video/audio transcripts,
-    // and news items to cut down on unnecessary page tracking
-    return !PAGE_REG_EXP.test(linkRef) && !TYPE_REG_EXP.test(linkRef);
-  }).map(function (link) {
-    var linkRef = $(link).attr('href');
-    var revisedLinkRef = linkRef === '/' ? '' : linkRef;
-    var linkUrl = domainBaseUrl + revisedLinkRef;
-
-    return linkUrl;
-  }); // Collect relative links on page
-
-  // Similar process for absolute links, but checking that they're internal
-  var absoluteLinks = $('a[href^="http"]').filter(function (link) {
-    var linkRef = $(link).attr('href');
-    return domainRegExp.test(linkRef) && !PAGE_REG_EXP.test(linkRef) && !TYPE_REG_EXP.test(linkRef);
-  }).map(function (link) {
-    var linkRef = $(link).attr('href');
-    return linkRef;
-  }); // Collect absolute links on page
-  var linksArray = relativeLinks.concat(absoluteLinks);
+  var linksArray = createLinksArray('a[href]');
 
   // Loop through all relevant URLs, pushing them to page arrays
 
@@ -200,6 +176,28 @@ function collectLinks(req, res, next, pageUrl, body) {
   }
 
   continueCrawling(req, res, next);
+
+  function createLinksArray(selector) {
+    var domObj = $(selector);
+    var linksArray = [];
+
+    for (var _i = 0; _i < domObj.length; _i++) {
+      var link = domObj[_i];
+      var linkRef = $(link).attr('href');
+      var isAbsolute = /http/i.test(linkRef);
+      var revisedLinkRef = linkRef === '/' ? '' : linkRef;
+      var linkUrl = isAbsolute ? revisedLinkRef : '' + domainBaseUrl + revisedLinkRef;
+      var isCorrectLinkType = /^(?:\/|http)/i.test(linkRef);
+      var isCorrectPageType = !PAGE_REG_EXP.test(linkRef) && !TYPE_REG_EXP.test(linkRef);
+      var isCorrectDomain = isAbsolute && domainRegExp.test(linkRef) || true;
+
+      if (isCorrectLinkType && isCorrectPageType && isCorrectDomain) {
+        linksArray.push(linkUrl);
+      }
+    }
+
+    return linksArray;
+  }
 }
 
 exports.default = checkUrls;

@@ -1,7 +1,7 @@
 import request from 'request';
 import cheerio from 'cheerio';
 import urlParse from 'url-parse';
-import heapdump from 'heapdump';
+// import heapdump from 'heapdump';
 
 // Arrays for keeping track of page info as the crawler iterates through
 // pages
@@ -40,13 +40,13 @@ function checkUrls(req, res, next) {
 function continueCrawling(req, res, next) {
   const thisPageToVisit = pageArrays.pagesToVisit[loopCount];
 
-  if (thisPageToVisit && loopCount < 201) {
+  if (thisPageToVisit) {
     // Periodically reset timeout to keep the crawler going
     if (loopCount % 100 === 0) {
-      heapdump.writeSnapshot((err, filename) => {
-        if (err) console.log(err);
-        console.log('dump written to', filename);
-      });
+      // heapdump.writeSnapshot((err, filename) => {
+      //   if (err) console.log(err);
+      //   console.log('dump written to', filename);
+      // });
 
       setTimeout(() => {
         requestPage(req, res, next, thisPageToVisit);
