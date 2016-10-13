@@ -1,5 +1,5 @@
 import GoogleSpreadsheet from 'google-spreadsheet';
-import heapdump from 'heapdump';
+// import heapdump from 'heapdump';
 import configAuth from '../config/auth.js';
 
 // Start by getting the sheet by ID
@@ -149,12 +149,8 @@ function moveNewUrls(req, res, next, info) {
               console.log(err);
             }
 
-            appendRow(
-              existingUrlSheet,
-              newUrlRows,
-              params,
-              getUrls
-            );
+            let loopCount = 0;
+            appendRow(existingUrlSheet, newUrlRows, loopCount, params, getUrls);
           }
         );
       });
@@ -205,8 +201,9 @@ function addChangedUrls(req, res, next, info) {
     info: info
   };
 
+  let loopCount = 0;
   // Add rows to new URL sheet, then go to 'addBrokenLinks'
-  appendRow(newUrlSheet, req.pagesCrawled, params, addBrokenLinks);
+  appendRow(newUrlSheet, req.pagesCrawled, loopCount, params, addBrokenLinks);
 }
 
 // Add broken links info to 'Broken Links' sheet
@@ -269,10 +266,11 @@ function appendRow(sheet, rowsArray, loopCount, params, callback) {
       req.notification = true;
 
       if (rowsArray.length % 500 === 0) {
-        heapdump.writeSnapshot((err, filename) => {
-          if (err) console.log(err);
-          console.log('dump written to', filename);
-        });
+        // heapdump.writeSnapshot((err, filename) => {
+        //   if (err) console.log(err);
+        //   console.log('dump written to', filename);
+        // });
+
         setTimeout(appendRow(sheet, rowsArray, loopCount, params, callback), 0);
       } else {
         appendRow(sheet, rowsArray, loopCount, params, callback);
@@ -290,6 +288,11 @@ function getEmails(req, res, next, info) {
   var infoSheet, emailRow, emails;
 
   infoSheet = info.worksheets[0];
+
+  // heapdump.writeSnapshot((err, filename) => {
+  //   if (err) console.log(err);
+  //   console.log('dump written to', filename);
+  // });
 
   // Only send an e-mail if there are new URLs or broken links
   if (req.notification) {

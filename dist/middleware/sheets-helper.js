@@ -8,6 +8,10 @@ var _googleSpreadsheet = require('google-spreadsheet');
 
 var _googleSpreadsheet2 = _interopRequireDefault(_googleSpreadsheet);
 
+var _heapdump = require('heapdump');
+
+var _heapdump2 = _interopRequireDefault(_heapdump);
+
 var _auth = require('../config/auth.js');
 
 var _auth2 = _interopRequireDefault(_auth);
@@ -16,13 +20,10 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 // Start by getting the sheet by ID
 function getSpreadsheet(req, res, next) {
-  var doc, docId;
-
   // First option is to use ID entered into the form, then any environment
   // variables
-  docId = req.body.sheet;
-
-  doc = new _googleSpreadsheet2.default(docId);
+  var docId = req.body.sheet;
+  var doc = new _googleSpreadsheet2.default(docId);
   setAuth(req, res, next, doc);
 }
 
@@ -37,10 +38,10 @@ function setAuth(req, res, next, doc) {
   doc.useServiceAccountAuth(credsJson, function (err) {
     if (err) {
       console.log(err);
-      return res.send(err);
+      res.send(err);
+    } else {
+      getWorksheets(req, res, next, doc);
     }
-
-    getWorksheets(req, res, next, doc);
   });
 }
 
@@ -48,20 +49,15 @@ function setAuth(req, res, next, doc) {
 function getWorksheets(req, res, next, doc) {
   doc.getInfo(function (err, info) {
     if (!info) {
-      return res.status(400).send('The Google Sheets ID was invalid.');
-    }
-
-    if (err) {
+      res.status(400).send('The Google Sheets ID was invalid.');
+    } else if (err) {
       console.log(err);
-      return res.status(400).send(err);
-    }
-
-    // If you've already crawled, write rows to new URLs sheet
-    if (req.pagesCrawled) {
+      res.status(400).send(err);
+      // If you've already crawled, write rows to new URLs sheet
+    } else if (req.pagesCrawled) {
       setTimeout(function () {
         addChangedUrls(req, res, next, info);
       }, 0);
-
       // Otherwise, delete blank URL rows
     } else {
       modifyErrorRows(req, res, next, info);
@@ -72,107 +68,86 @@ function getWorksheets(req, res, next, doc) {
 // Function for deleting rows that are missing URLs and adding status 200
 // to rows without statuses
 function modifyErrorRows(req, res, next, info) {
-  var sheet;
+  var sheet = info.worksheets[1];
 
-  sheet = info.worksheets[1];
-
-  sheet.getRows({
-    offset: 1,
-    orderby: 'col2'
-  }, function (err, rows) {
+  sheet.getRows({ offset: 1, orderby: 'col2' }, function (err, rows) {
     if (err) {
       console.log(err);
     }
 
-    modifyRow(rows);
+    var loopCount = 0;
+    modifyRow(rows, loopCount);
   });
 
   // Function for modifying rows that can cause errors
-  function modifyRow(rows) {
-    var rowsArray, thisRow;
-
-    rowsArray = rows.slice(0);
+  function modifyRow(rows, loopCount) {
     // Use last element, because row.del() will remove bottom row
     // with same url/status
-    thisRow = rowsArray.pop();
+    var thisRow = rows[rows.length - 1 - loopCount];
+    loopCount++;
 
-    // Delete rows without URLS, then call modifyRow again,
-    // or moveNewUrls if no more rows
-    if (!thisRow.url) {
-      thisRow.del(function (err) {
-        if (err) {
-          console.log(err);
-        }
+    if (thisRow) {
+      // Delete rows without URLS, then call modifyRow again,
+      // or moveNewUrls if no more rows
+      if (!thisRow.url) {
+        thisRow.del(function (err) {
+          if (err) {
+            console.log(err);
+          }
 
-        if (rowsArray.length > 0) {
-          resetTimer(rowsArray);
-        } else {
-          moveNewUrls(req, res, next, info);
-        }
-      });
+          resetTimer(rows, loopCount);
+        });
+        // If row is complete, call modify Row again
+      } else if (thisRow.status) {
+        resetTimer(rows, loopCount);
+        // Add '200' to rows with empty statuses
+      } else {
+        thisRow.status = 200;
+        thisRow.save(function (err) {
+          if (err) {
+            console.log(err);
+          }
 
-      // Add '200' to rows with empty statuses
-    } else if (!thisRow.status) {
-      thisRow.status = 200;
-      thisRow.save(function (err) {
-        if (err) {
-          console.log(err);
-        }
-
-        if (rowsArray.length > 0) {
-          resetTimer(rowsArray);
-        } else {
-          moveNewUrls(req, res, next, info);
-        }
-      });
-
-      // If row is complete, call modify Row again
-    } else if (rowsArray.length > 0) {
-      resetTimer(rowsArray);
+          resetTimer(rows, loopCount);
+        });
+      }
     } else {
       moveNewUrls(req, res, next, info);
     }
   }
 
-  // Reset timer every 200 rows to avoid timeout error
-  function resetTimer(rowsArray) {
-    if (rowsArray.length % 200 === 0) {
+  // Reset timer every 500 rows to avoid timeout error
+  function resetTimer(rowsArray, loopCount) {
+    if (rowsArray.length % 500 === 0) {
       setTimeout(modifyRow(rowsArray), 0);
     } else {
-      modifyRow(rowsArray);
+      modifyRow(rowsArray, loopCount);
     }
   }
 }
 
 // Copy URLs from 'New/Modified URLs' over to 'Existing URLs'
 function moveNewUrls(req, res, next, info) {
-  var newUrlSheet, existingUrlSheet, params;
-
-  existingUrlSheet = info.worksheets[1];
-  params = {
+  var existingUrlSheet = info.worksheets[1];
+  var params = {
     req: req,
     res: res,
     next: next,
     info: info
   };
+  var newUrlSheet = info.worksheets[2];
 
-  newUrlSheet = info.worksheets[2];
-  newUrlSheet.getRows({
-    offset: 1,
-    orderby: 'col2'
-  }, function (err, rows) {
-    var newUrlRows;
-
+  newUrlSheet.getRows({ offset: 1, orderby: 'col2' }, function (err, rows) {
     if (err) {
       console.log(err);
     }
 
-    // Rows array has a lot of extra data, so filter to get
+    // Rows array has a lot of extra data, so map to get
     // only URL and status code
-    newUrlRows = rows.map(function (item) {
+    var newUrlRows = rows.map(function (row) {
       return {
-        url: item.url,
-        status: item.status
+        url: row.url,
+        status: row.status
       };
     });
 
@@ -187,7 +162,8 @@ function moveNewUrls(req, res, next, info) {
           console.log(err);
         }
 
-        appendRow(existingUrlSheet, newUrlRows, params, getUrls);
+        var loopCount = 0;
+        appendRow(existingUrlSheet, newUrlRows, loopCount, params, getUrls);
       });
     });
   });
@@ -196,21 +172,16 @@ function moveNewUrls(req, res, next, info) {
 // Collect array of URLs that you want to check
 // (found in 'Existing URLs' sheet)
 function getUrls(req, res, next, info) {
-  var urlSheet, pagesToCrawl;
+  var urlSheet = info.worksheets[1];
 
-  urlSheet = info.worksheets[1];
-
-  urlSheet.getRows({
-    offset: 1,
-    orderby: 'col2'
-  }, function (err, rows) {
+  urlSheet.getRows({ offset: 1, orderby: 'col2' }, function (err, rows) {
     if (err) {
       console.log(err);
     }
 
     // Push all rows of 'Existing URLs' into 'pagesToCrawl' for use
     // by crawler.js
-    pagesToCrawl = rows.filter(function (row) {
+    req.pagesToCrawl = rows.filter(function (row) {
       return row.url && row;
     }).map(function (row) {
       return {
@@ -219,7 +190,6 @@ function getUrls(req, res, next, info) {
       };
     });
 
-    req.pagesToCrawl = pagesToCrawl;
     next();
   });
 }
@@ -237,8 +207,9 @@ function addChangedUrls(req, res, next, info) {
     info: info
   };
 
+  var loopCount = 0;
   // Add rows to new URL sheet, then go to 'addBrokenLinks'
-  appendRow(newUrlSheet, req.pagesCrawled, params, addBrokenLinks);
+  appendRow(newUrlSheet, req.pagesCrawled, loopCount, params, addBrokenLinks);
 }
 
 // Add broken links info to 'Broken Links' sheet
@@ -268,20 +239,22 @@ function addBrokenLinks(req, res, next, info) {
         info: info
       };
 
+      var loopCount = 0;
       // Add rows to broken links sheet, then go to 'getEmails'
-      appendRow(brokenLinkSheet, req.brokenLinks, params, getEmails);
+      appendRow(brokenLinkSheet, req.brokenLinks, loopCount, params, getEmails);
     });
   });
 }
 
 // Function for adding rows to a given sheet
-function appendRow(sheet, rowsArray, params, callback) {
-  var thisArray, thisRow, req, res, next, info;
+function appendRow(sheet, rowsArray, loopCount, params, callback) {
+  var thisRow = rowsArray[loopCount];
+  var next = params.next;
+  var req = params.req;
+  var res = params.res;
+  var info = params.info;
 
-  thisArray = rowsArray.slice(0);
-  thisRow = thisArray.shift();
-  next = params.next;
-  req = params.req;
+  loopCount++;
 
   // If there's another row to add, add it and repeat 'appendRow'
   if (thisRow) {
@@ -293,17 +266,18 @@ function appendRow(sheet, rowsArray, params, callback) {
       // Only send e-mail notification if new rows are added
       req.notification = true;
 
-      if (rowsArray.length % 200 === 0) {
-        setTimeout(appendRow(sheet, thisArray, params, callback), 0);
+      if (rowsArray.length % 500 === 0) {
+        _heapdump2.default.writeSnapshot(function (err, filename) {
+          if (err) console.log(err);
+          console.log('dump written to', filename);
+        });
+        setTimeout(appendRow(sheet, rowsArray, loopCount, params, callback), 0);
       } else {
-        appendRow(sheet, thisArray, params, callback);
+        appendRow(sheet, rowsArray, loopCount, params, callback);
       }
     });
-
     // Otherwise, invoke callback
   } else {
-    res = params.res;
-    info = params.info;
     callback(req, res, next, info);
   }
 }
@@ -317,10 +291,7 @@ function getEmails(req, res, next, info) {
 
   // Only send an e-mail if there are new URLs or broken links
   if (req.notification) {
-    infoSheet.getRows({
-      offset: 1,
-      orderby: 'col2'
-    }, function (err, rows) {
+    infoSheet.getRows({ offset: 1, orderby: 'col2' }, function (err, rows) {
       if (err) {
         console.log(err);
       }
@@ -333,11 +304,11 @@ function getEmails(req, res, next, info) {
         emails = emailRow.split(/,\s*/g);
         req.emailList = emails;
       }
-      return next();
+      next();
     });
   } else {
     console.log('No new info');
-    return next();
+    next();
   }
 }
 
