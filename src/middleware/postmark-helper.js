@@ -1,43 +1,36 @@
-var auth, postmarkKey, postmark, pmClient, self;
+import configAuth from '../config/auth.js';
+import postmark from 'postmark';
+const {postmark_key, doc_id} = configAuth;
+const pmClient = new postmark.Client(postmark_key);
 
-auth = require('../config/auth.js');
-postmarkKey = auth.postmark_key;
-postmark = require('postmark');
-pmClient = new postmark.Client(postmarkKey);
+// Send notification e-mail
+function sendNotification(req, res, next) {
+  const {emailList} = req;
 
-postmarkHelper = self = {
+  if (emailList) {
+    const receiversEmails = emailList.join(', ');
 
-  // Send notification e-mail
-  sendNotification: function (req, res, next) {
-    var receivers, receiversEmails;
+    pmClient.sendEmail({
+      'From': 'search.melbourne@mediacom.com',
+      'To': receiversEmails,
+      'Subject': 'Check URL Errors',
+      'TextBody': 'Check which URLs have changed, and which have errors here:' +
+        '\nhttps://docs.google.com/spreadsheets/d/' + doc_id
+    },
+    (err, to) => {
+      if (err) {
+        console.log(err);
+        next();
+      }
 
-    if (req.emailList) {
-      receivers = req.emailList;
-      receiversEmails = receivers.join(', ');
-
-      pmClient.sendEmail({
-        'From': 'search.melbourne@mediacom.com',
-        'To': receiversEmails,
-        'Subject': 'Check URL Errors',
-        'TextBody': 'Check which URLs have changed, and which have errors here:' +
-          '\nhttps://docs.google.com/spreadsheets/d/' + auth.doc_id
-        },
-        function (err, to) {
-          if (err) {
-            console.log(err);
-            return next();
-          }
-
-          console.log('E-mail sent to: ');
-          console.log(to);
-          return next();
-      });
-
-    } else {
-      console.log('No e-mail addresses');
-      return next();
-    }
+      console.log('E-mail sent to: ');
+      console.log(to);
+      next();
+    });
+  } else {
+    console.log('No e-mail addresses');
+    next();
   }
-};
+}
 
-module.exports = postmarkHelper;
+export default sendNotification;

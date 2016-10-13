@@ -1,13 +1,9 @@
-'use strict';
-
-var express, router, crawler, sheets, jwtHelper, postmarkHelper;
-
-express = require('express');
-router = express.Router();
-crawler = require('../middleware/crawler.js');
-sheets = require('../middleware/sheets-helper.js');
-jwtHelper = require('../middleware/jwt-helper.js');
-postmarkHelper = require('../middleware/postmark-helper.js');
+import express from 'express';
+const router = express.Router();
+import checkUrls from '../middleware/crawler.js';
+import getSpreadsheet from '../middleware/sheets-helper.js';
+import {createToken, checkToken} from '../middleware/jwt-helper.js';
+import sendNotification from '../middleware/postmark-helper.js';
 
 router.get('/', function(req, res, next) {
   res.render('index', {
@@ -18,7 +14,7 @@ router.get('/', function(req, res, next) {
 
 // Start by creating a Javascript Web Tokein (JWT) and sending it to client
 router.post('/api/token',
-  jwtHelper.create, // Creates JWT
+  createToken, // Creates JWT
   function(req, res, next) {
     res.json({
       success: true,
@@ -31,14 +27,14 @@ router.post('/api/token',
 // With success above, proceed to crawl website(s), record info
 // in Google Sheets, then send e-mail notification if there's new info
 router.post('/api/crawl',
-  jwtHelper.check, // Verifies JWT
-  sheets.getSpreadsheet, // Reads existing info from Google Sheets
-  crawler.checkUrls, // Crawls website(s)
-  sheets.getSpreadsheet, // Writes new info to Google Sheets
-  postmarkHelper.sendNotification, // Sends e-mail notification
+  checkToken, // Verifies JWT
+  getSpreadsheet, // Reads existing info from Google Sheets
+  checkUrls, // Crawls website(s)
+  getSpreadsheet, // Writes new info to Google Sheets
+  sendNotification, // Sends e-mail notification
   function(req, res, next) {
     res.redirect('/');
   }
 );
 
-module.exports = router;
+export default router;

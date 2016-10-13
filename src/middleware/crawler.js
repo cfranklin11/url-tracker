@@ -12,6 +12,8 @@ const pageArrays = {
   brokenLinks: []
 };
 let loopCount = 0;
+const PAGE_REG_EXP = /permalink|visited-locations|transcripts|news/i;
+const TYPE_REG_EXP = /\.zip|\.doc|\.ppt|\.csv|\.xls|\.jpg|\.ash|\.png/i;
 
 // Starts the process by building the necessary page arrays
 function checkUrls(req, res, next) {
@@ -56,8 +58,10 @@ function continueCrawling(req, res, next) {
   // If there are no more pages to visit, move on to adding info
   // to Google Sheets
   } else {
-    req.pagesCrawled = self.changedPages;
-    req.brokenLinks = self.brokenLinks;
+    req.pagesCrawled = pageArrays.pagesVisited.filter(page => {
+      return page.isChanged;
+    });
+    req.brokenLinks = pageArrays.brokenLinks;
     next();
   }
 }
@@ -85,18 +89,14 @@ function requestPage(req, res, next, pageUrl) {
 
       // If the page doesn't exist on Current URLs sheet,
       // add it to 'changedPages'
-      const urlIndex = req.pagesToCrawl.findIndex(function(item) {
-        return item.url === pageObj.url && item.status === pageObj.status;
-      });
+      const isInPagesToCrawl = req.pagesToCrawl.findIndex(page => {
+        return page.url === pageObj.url && page.status === pageObj.status;
+      }) !== -1;
 
-      if (urlIndex === -1) {
-        pageObj.isChanged = true;
-      } else {
-        pageObj.isChanged = false;
-      }
+      pageObj.isChanged = !isInPagesToCrawl;
 
       // Add this page to 'pagesVisited', so you don't make repeat visits
-      pageArrays.pagesVisited.push(pageUrl);
+      pageArrays.pagesVisited.push(pageObj);
       loopCount++;
 
       // If the page is working & the body is html,
@@ -115,29 +115,23 @@ function requestPage(req, res, next, pageUrl) {
 
 // Scrape page for internal links to add to 'pagesToVisit'
 function collectLinks(req, res, next, pageUrl, body) {
-  var $, urlObj, domainBaseUrl, domainRegExp,
-    pageRegExp, typeRegExp, i, linkObj,
-    thisLink;
-
-  $ = cheerio.load(body);
-  urlObj = new urlParse(pageUrl);
-  domainBaseUrl = urlObj.protocol + '//' + urlObj.hostname;
-  domainRegExp = new RegExp(domainBaseUrl);
-  pageRegExp = /permalink|visited-locations|transcripts|news/i;
-  typeRegExp = /\.zip|\.doc|\.ppt|\.csv|\.xls|\.jpg|\.ash|\.png/i;
+  const $ = cheerio.load(body);
+  const urlObj = new urlParse(pageUrl);
+  const domainBaseUrl = `${urlObj.protocol}//${urlObj.hostname}`;
+  const domainRegExp = new RegExp(domainBaseUrl);
 
   // Collect URLs from relative links and add current domain to complete
   // the URL
   const relativeLinks = $('a[href^="/"]')
     .filter(link => {
-      const linkRef = link.getAttribute('href');
+      const linkRef = $(link).attr('href');
 
       // Filter out forum posts, some file types, video/audio transcripts,
       // and news items to cut down on unnecessary page tracking
-      return !pageRegExp.test(linkRef) && !typeRegExp.test(linkRef);
+      return !PAGE_REG_EXP.test(linkRef) && !TYPE_REG_EXP.test(linkRef);
     })
     .map(link => {
-      const linkRef = link.getAttribute('href');
+      const linkRef = $(link).attr('href');
       const revisedLinkRef = linkRef === '/' ? '' : linkRef;
       const linkUrl = domainBaseUrl + revisedLinkRef;
 
@@ -147,37 +141,39 @@ function collectLinks(req, res, next, pageUrl, body) {
   // Similar process for absolute links, but checking that they're internal
   const absoluteLinks = $('a[href^="http"]')
     .filter(link => {
-      const linkRef = link.getAttribute('href');
+      const linkRef = $(link).attr('href');
       return domainRegExp.test(linkRef) &&
-        !pageRegExp.test(linkRef) &&
-        !typeRegExp.test(linkRef);
+        !PAGE_REG_EXP.test(linkRef) &&
+        !TYPE_REG_EXP.test(linkRef);
     })
     .map(link => {
-      const linkRef = link.getAttribute('href');
+      const linkRef = $(link).attr('href');
       return linkRef;
     }); // Collect absolute links on page
   const linksArray = relativeLinks.concat(absoluteLinks);
 
   // Loop through all relevant URLs, pushing them to page arrays
-  for (i = 0; i < linksArray.length; i++) {
-    thisLink = linksArray[i].replace(/\?.*/, '').replace(/\/$/, '');
+  for (let i = 0; i < linksArray.length; i++) {
+    const thisLink = linksArray[i].replace(/\?.*/, '').replace(/\/$/, '');
+    const linkObj = {
+      page_url: pageUrl,
+      link_url: thisLink
+    };
+    const isInError = pageArrays.errorPages.indexOf(thisLink) !== -1;
+    const isInBroken = pageArrays.brokenLinks.findIndex(link => {
+      return link.page_url === pageUrl && link.link_url === thisLink;
+    }) !== -1;
+    const isInToVisit = pageArrays.pagesToVisit.indexOf(thisLink) !== -1;
+    const isInVisited = pageArrays.pagesVisited.findIndex(link => {
+      return link.url === thisLink;
+    });
 
     // If the URL is in 'errorPages' and not 'brokenLinks',
     // add it to 'brokenLinks'
-    if (pageArrays.errorPages.indexOf(thisLink) !== -1) {
-      linkObj = {
-        page_url: pageUrl,
-        link_url: thisLink
-      };
-
-      if (pageArrays.brokenLinks.indexOf(linkObj) === -1) {
-        pageArrays.brokenLinks.push(linkObj);
-      }
-    }
-
+    if (isInError && !isInBroken) {
+      pageArrays.brokenLinks.push(linkObj);
     // Otherwise, add URL to 'pagesToVisit'
-    if (pageArrays.pagesToVisit.indexOf(thisLink) === -1 &&
-        pageArrays.pagesVisited.indexOf(thisLink) === -1) {
+    } else if (!isInToVisit && !isInVisited) {
       pageArrays.pagesToVisit.push(thisLink);
     }
   }
@@ -185,4 +181,4 @@ function collectLinks(req, res, next, pageUrl, body) {
   continueCrawling(req, res, next);
 }
 
-export {checkUrls};
+export default checkUrls;
