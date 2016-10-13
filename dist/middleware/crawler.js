@@ -16,11 +16,9 @@ var _urlParse = require('url-parse');
 
 var _urlParse2 = _interopRequireDefault(_urlParse);
 
-var _heapdump = require('heapdump');
-
-var _heapdump2 = _interopRequireDefault(_heapdump);
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+// import heapdump from 'heapdump';
 
 // Arrays for keeping track of page info as the crawler iterates through
 // pages
@@ -32,7 +30,7 @@ var pageArrays = {
 };
 var loopCount = 0;
 var PAGE_REG_EXP = /permalink|visited-locations|transcripts|news/i;
-var TYPE_REG_EXP = /\.zip|\.doc|\.ppt|\.csv|\.xls|\.jpg|\.ash|\.png/i;
+var TYPE_REG_EXP = /\.zip|\.doc|\.ppt|\.csv|\.xls|\.jpg|\.ash|\.png|\.aspx/i;
 
 // Starts the process by building the necessary page arrays
 function checkUrls(req, res, next) {
@@ -59,13 +57,13 @@ function checkUrls(req, res, next) {
 function continueCrawling(req, res, next) {
   var thisPageToVisit = pageArrays.pagesToVisit[loopCount];
 
-  if (thisPageToVisit && loopCount < 201) {
+  if (thisPageToVisit) {
     // Periodically reset timeout to keep the crawler going
     if (loopCount % 100 === 0) {
-      _heapdump2.default.writeSnapshot(function (err, filename) {
-        if (err) console.log(err);
-        console.log('dump written to', filename);
-      });
+      // heapdump.writeSnapshot((err, filename) => {
+      //   if (err) console.log(err);
+      //   console.log('dump written to', filename);
+      // });
 
       setTimeout(function () {
         requestPage(req, res, next, thisPageToVisit);
@@ -91,40 +89,44 @@ function requestPage(req, res, next, pageUrl) {
   var isVisited = pageArrays.pagesVisited.findIndex(function (page) {
     return page.url === pageUrl;
   }) !== -1;
+  loopCount++;
 
   if (pageUrl && !isVisited) {
     (0, _request2.default)(pageUrl, function (error, response, body) {
       if (error) {
+        console.log(pageUrl);
         console.log(error);
-      }
-
-      var statusCode = response.statusCode;
-
-      var pageObj = {
-        url: pageUrl,
-        status: statusCode.toString()
-      };
-
-      console.log(pageObj);
-
-      // If the page doesn't exist on Current URLs sheet,
-      // add it to 'changedPages'
-      var isInPagesToCrawl = req.pagesToCrawl.findIndex(function (page) {
-        return page.url === pageObj.url && page.status === pageObj.status;
-      }) !== -1;
-
-      pageObj.isChanged = !isInPagesToCrawl;
-
-      // Add this page to 'pagesVisited', so you don't make repeat visits
-      pageArrays.pagesVisited.push(pageObj);
-      loopCount++;
-
-      // If the page is working & the body is html,
-      // collect links for other pages
-      if (parseFloat(statusCode) === 200 && /<?\/?html>/.test(body)) {
-        collectLinks(req, res, next, pageUrl, body);
-      } else {
         continueCrawling(req, res, next);
+      } else {
+        (function () {
+          var statusCode = response.statusCode;
+
+          var pageObj = {
+            url: pageUrl,
+            status: statusCode.toString()
+          };
+
+          console.log(pageObj);
+
+          // If the page doesn't exist on Current URLs sheet,
+          // add it to 'changedPages'
+          var isInPagesToCrawl = req.pagesToCrawl.findIndex(function (page) {
+            return page.url === pageObj.url && page.status === pageObj.status;
+          }) !== -1;
+
+          pageObj.isChanged = !isInPagesToCrawl;
+
+          // Add this page to 'pagesVisited', so you don't make repeat visits
+          pageArrays.pagesVisited.push(pageObj);
+
+          // If the page is working & the body is html,
+          // collect links for other pages
+          if (parseFloat(statusCode) === 200 && /<?\/?html>/.test(body)) {
+            collectLinks(req, res, next, pageUrl, body);
+          } else {
+            continueCrawling(req, res, next);
+          }
+        })();
       }
     });
   } else {
@@ -137,7 +139,7 @@ function requestPage(req, res, next, pageUrl) {
 function collectLinks(req, res, next, pageUrl, body) {
   var $ = _cheerio2.default.load(body);
   var urlObj = new _urlParse2.default(pageUrl);
-  var domainBaseUrl = urlObj.protocol + '//' + urlObj.hostname;
+  var domainBaseUrl = urlObj.origin;
   var domainRegExp = new RegExp(domainBaseUrl);
 
   // Collect URLs from relative links and add current domain to complete
@@ -159,7 +161,7 @@ function collectLinks(req, res, next, pageUrl, body) {
     var isInToVisit = pageArrays.pagesToVisit.indexOf(thisLink) !== -1;
     var isInVisited = pageArrays.pagesVisited.findIndex(function (link) {
       return link.url === thisLink;
-    });
+    }) !== -1;
 
     // If the URL is in 'errorPages' and not 'brokenLinks',
     // add it to 'brokenLinks'
@@ -189,7 +191,7 @@ function collectLinks(req, res, next, pageUrl, body) {
       var linkUrl = isAbsolute ? revisedLinkRef : '' + domainBaseUrl + revisedLinkRef;
       var isCorrectLinkType = /^(?:\/|http)/i.test(linkRef);
       var isCorrectPageType = !PAGE_REG_EXP.test(linkRef) && !TYPE_REG_EXP.test(linkRef);
-      var isCorrectDomain = isAbsolute && domainRegExp.test(linkRef) || true;
+      var isCorrectDomain = isAbsolute ? domainRegExp.test(linkRef) : true;
 
       if (isCorrectLinkType && isCorrectPageType && isCorrectDomain) {
         linksArray.push(linkUrl);
