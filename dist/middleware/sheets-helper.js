@@ -8,10 +8,6 @@ var _googleSpreadsheet = require('google-spreadsheet');
 
 var _googleSpreadsheet2 = _interopRequireDefault(_googleSpreadsheet);
 
-var _heapdump = require('heapdump');
-
-var _heapdump2 = _interopRequireDefault(_heapdump);
-
 var _auth = require('../config/auth.js');
 
 var _auth2 = _interopRequireDefault(_auth);
@@ -28,6 +24,8 @@ function getSpreadsheet(req, res, next) {
 }
 
 // Get auth credentials to make changes to sheet
+
+// import heapdump from 'heapdump';
 function setAuth(req, res, next, doc) {
   var client_email = _auth2.default.client_email;
   var private_key = _auth2.default.private_key;
@@ -267,10 +265,11 @@ function appendRow(sheet, rowsArray, loopCount, params, callback) {
       req.notification = true;
 
       if (rowsArray.length % 500 === 0) {
-        _heapdump2.default.writeSnapshot(function (err, filename) {
-          if (err) console.log(err);
-          console.log('dump written to', filename);
-        });
+        // heapdump.writeSnapshot((err, filename) => {
+        //   if (err) console.log(err);
+        //   console.log('dump written to', filename);
+        // });
+
         setTimeout(appendRow(sheet, rowsArray, loopCount, params, callback), 0);
       } else {
         appendRow(sheet, rowsArray, loopCount, params, callback);
@@ -288,6 +287,11 @@ function getEmails(req, res, next, info) {
   var infoSheet, emailRow, emails;
 
   infoSheet = info.worksheets[0];
+
+  // heapdump.writeSnapshot((err, filename) => {
+  //   if (err) console.log(err);
+  //   console.log('dump written to', filename);
+  // });
 
   // Only send an e-mail if there are new URLs or broken links
   if (req.notification) {

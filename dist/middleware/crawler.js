@@ -16,11 +16,9 @@ var _urlParse = require('url-parse');
 
 var _urlParse2 = _interopRequireDefault(_urlParse);
 
-var _heapdump = require('heapdump');
-
-var _heapdump2 = _interopRequireDefault(_heapdump);
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+// import heapdump from 'heapdump';
 
 // Arrays for keeping track of page info as the crawler iterates through
 // pages
@@ -60,10 +58,10 @@ function continueCrawling(req, res, next) {
   if (thisPageToVisit) {
     // Periodically reset timeout to keep the crawler going
     if (loopCount % 500 === 0) {
-      _heapdump2.default.writeSnapshot(function (err, filename) {
-        if (err) console.log(err);
-        console.log('dump written to', filename);
-      });
+      // heapdump.writeSnapshot((err, filename) => {
+      //   if (err) console.log(err);
+      //   console.log('dump written to', filename);
+      // });
 
       setTimeout(function () {
         requestPage(req, res, next, thisPageToVisit);
@@ -101,9 +99,6 @@ function requestPage(req, res, next, pageUrl) {
             url: pageUrl,
             status: statusCode.toString()
           };
-
-          console.log(pageObj);
-
           // If the page doesn't exist on Current URLs sheet,
           // add it to 'changedPages'
           var isInPagesToCrawl = req.pagesToCrawl.findIndex(function (page) {
