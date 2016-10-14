@@ -1,3 +1,5 @@
+/* eslint no-loop-func: 0 */
+
 import request from 'request';
 import cheerio from 'cheerio';
 import urlParse from 'url-parse';
@@ -10,6 +12,8 @@ let changedPages = [];
 let errorPages = [];
 let brokenLinks = [];
 let loopCount = 0;
+// RegExps to skip unimportant pages (PAGE_REG_EXP) and not to crawl non-html
+// pages for links (TYPE_REG_EXP), because that results in errors
 const PAGE_REG_EXP = /permalink|visited-locations|transcripts|news/i;
 const TYPE_REG_EXP = /\.zip|\.doc|\.ppt|\.csv|\.xls|\.jpg|\.ash|\.png|\.aspx/i;
 
@@ -109,8 +113,9 @@ function requestPage(req, res, next, pageUrl) {
 function collectLinks(req, res, next, pageUrl, body) {
   const $ = cheerio.load(body);
   const urlObj = new urlParse(pageUrl);
-  const domainBaseUrl = urlObj.origin;
+  const domainBaseUrl = urlObj.hostname;
   const domainRegExp = new RegExp(domainBaseUrl);
+  const protocol = urlObj.protocol;
   // Collect URLs from link tags (adding current domain to relative links)
   const linkTagsObj = $('a[href]');
 
@@ -120,9 +125,10 @@ function collectLinks(req, res, next, pageUrl, body) {
     const isAbsolute = /http/i.test(linkRef);
     const revisedLinkRef = linkRef === '/' ?
       '' :
-      linkRef.replace(/\?.*/, '').replace(/\/$/, '');
-    const linkUrl =
-      isAbsolute ? revisedLinkRef : `${domainBaseUrl}${revisedLinkRef}`;
+      linkRef.replace(/\?.*/, '').replace(/#.*/, '').replace(/\/$/, '');
+    const linkUrl = isAbsolute ?
+      revisedLinkRef :
+      `${protocol}//${domainBaseUrl}${revisedLinkRef}`;
     const linkObj = {
       page_url: pageUrl,
       link_url: linkUrl
@@ -150,6 +156,8 @@ function collectLinks(req, res, next, pageUrl, body) {
     }
   }
 
+  pageUrl = null;
+  body = null;
   continueCrawling(req, res, next);
 }
 

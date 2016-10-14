@@ -22,11 +22,14 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 // Arrays for keeping track of page info as the crawler iterates through
 // pages
-var pagesToVisit = [];
+var pagesToVisit = []; /* eslint no-loop-func: 0 */
+
 var changedPages = [];
 var errorPages = [];
 var brokenLinks = [];
 var loopCount = 0;
+// RegExps to skip unimportant pages (PAGE_REG_EXP) and not to crawl non-html
+// pages for links (TYPE_REG_EXP), because that results in errors
 var PAGE_REG_EXP = /permalink|visited-locations|transcripts|news/i;
 var TYPE_REG_EXP = /\.zip|\.doc|\.ppt|\.csv|\.xls|\.jpg|\.ash|\.png|\.aspx/i;
 
@@ -92,7 +95,6 @@ function requestPage(req, res, next, pageUrl) {
         console.log(error);
         continueCrawling(req, res, next);
       } else {
-        console.log(pageUrl);
         (function () {
           var statusCode = response.statusCode;
 
@@ -131,8 +133,9 @@ function requestPage(req, res, next, pageUrl) {
 function collectLinks(req, res, next, pageUrl, body) {
   var $ = _cheerio2.default.load(body);
   var urlObj = new _urlParse2.default(pageUrl);
-  var domainBaseUrl = urlObj.origin;
+  var domainBaseUrl = urlObj.hostname;
   var domainRegExp = new RegExp(domainBaseUrl);
+  var protocol = urlObj.protocol;
   // Collect URLs from link tags (adding current domain to relative links)
   var linkTagsObj = $('a[href]');
 
@@ -140,8 +143,8 @@ function collectLinks(req, res, next, pageUrl, body) {
     var link = linkTagsObj[i];
     var linkRef = $(link).attr('href');
     var isAbsolute = /http/i.test(linkRef);
-    var revisedLinkRef = linkRef === '/' ? '' : linkRef.replace(/\?.*/, '').replace(/\/$/, '');
-    var linkUrl = isAbsolute ? revisedLinkRef : '' + domainBaseUrl + revisedLinkRef;
+    var revisedLinkRef = linkRef === '/' ? '' : linkRef.replace(/\?.*/, '').replace(/#.*/, '').replace(/\/$/, '');
+    var linkUrl = isAbsolute ? revisedLinkRef : protocol + '//' + domainBaseUrl + revisedLinkRef;
     var linkObj = {
       page_url: pageUrl,
       link_url: linkUrl
@@ -172,6 +175,8 @@ function collectLinks(req, res, next, pageUrl, body) {
     _loop(i);
   }
 
+  pageUrl = null;
+  body = null;
   continueCrawling(req, res, next);
 }
 
