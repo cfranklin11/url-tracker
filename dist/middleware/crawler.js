@@ -95,6 +95,7 @@ function requestPage(req, res, next, pageUrl) {
         console.log(error);
         continueCrawling(req, res, next);
       } else {
+        console.log(pageUrl);
         (function () {
           var statusCode = response.statusCode;
 
