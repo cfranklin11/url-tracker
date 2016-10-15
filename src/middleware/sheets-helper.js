@@ -250,16 +250,12 @@ function addChangedUrls(req, res, next, info) {
             console.log(err);
             next();
           } else {
-            getEmails(req, res, next, info);
+            addBrokenLinks(req, res, next, info);
           }
         });
       }
     });
   });
-
-  // let loopCount = 0;
-  // // Add rows to new URL sheet, then go to 'addBrokenLinks'
-  // appendRow(newUrlSheet, req.pagesCrawled, loopCount, params, addBrokenLinks);
 }
 
 // Add broken links info to 'Broken Links' sheet
