@@ -28,6 +28,7 @@ var changedPages = [];
 var errorPages = [];
 var brokenLinks = [];
 var loopCount = 0;
+var requestCount = 0;
 // RegExps to skip unimportant pages (PAGE_REG_EXP) and not to crawl non-html
 // pages for links (TYPE_REG_EXP), because that results in errors
 var PAGE_REG_EXP = /permalink|visited-locations|transcripts|news/i;
@@ -50,52 +51,96 @@ function checkUrls(req, res, next) {
     }
   }
 
-  continueCrawling(req, res, next);
+  continueLoop(req, res, next);
+
+  // else {
+  //   req.pagesCrawled = changedPages;
+  //   req.brokenLinks = brokenLinks;
+  //   next();
+  // }
+
+  // continueCrawling(req, res, next);
+}
+
+function continueLoop(req, res, next) {
+  var _loop = function _loop() {
+    var thisPageToVisit = pagesToVisit[loopCount];
+
+    if (thisPageToVisit) {
+      (function () {
+        var currentCount = loopCount;
+
+        if (loopCount % 500 === 0) {
+          // heapdump.writeSnapshot((err, filename) => {
+          //   if (err) console.log(err);
+          //   console.log('dump written to', filename);
+          // });
+
+          setTimeout(function () {
+            requestCount++;
+            requestPage(req, res, next, thisPageToVisit, currentCount);
+          }, 0);
+        } else {
+          requestCount++;
+          requestPage(req, res, next, thisPageToVisit, currentCount);
+        }
+      })();
+    } else {
+      req.pagesCrawled = changedPages;
+      req.brokenLinks = brokenLinks;
+      next();
+    }
+  };
+
+  for (loopCount; loopCount < pagesToVisit.length; loopCount++) {
+    _loop();
+  }
 }
 
 // The hub of the crawler, all functions loop back here until all pages
 // have been crawled
-function continueCrawling(req, res, next) {
-  var thisPageToVisit = pagesToVisit[loopCount];
-
-  if (thisPageToVisit) {
-    // Periodically reset timeout to keep the crawler going
-    if (loopCount % 500 === 0) {
-      // heapdump.writeSnapshot((err, filename) => {
-      //   if (err) console.log(err);
-      //   console.log('dump written to', filename);
-      // });
-
-      setTimeout(function () {
-        requestPage(req, res, next, thisPageToVisit);
-      }, 0);
-    } else {
-      requestPage(req, res, next, thisPageToVisit);
-    }
-
-    // If there are no more pages to visit, move on to adding info
-    // to Google Sheets
-  } else {
-    req.pagesCrawled = changedPages;
-    req.brokenLinks = brokenLinks;
-    next();
-  }
-}
+// function continueCrawling(req, res, next) {
+//   const thisPageToVisit = pagesToVisit[loopCount];
+//
+//   if (thisPageToVisit) {
+//     // Periodically reset timeout to keep the crawler going
+//     if (loopCount % 500 === 0) {
+//       // heapdump.writeSnapshot((err, filename) => {
+//       //   if (err) console.log(err);
+//       //   console.log('dump written to', filename);
+//       // });
+//
+//       setTimeout(() => {
+//         requestPage(req, res, next, thisPageToVisit);
+//       }, 0);
+//     } else {
+//       requestPage(req, res, next, thisPageToVisit);
+//     }
+//
+//   // If there are no more pages to visit, move on to adding info
+//   // to Google Sheets
+//   } else {
+//     req.pagesCrawled = changedPages;
+//     req.brokenLinks = brokenLinks;
+//     next();
+//   }
+// }
 
 // Makes HTTP requests
-function requestPage(req, res, next, pageUrl) {
+function requestPage(req, res, next, pageUrl, currentIndex) {
   // Only request the page if you haven't visited it yet
-  var wasVisited = pagesToVisit.indexOf(pageUrl) < loopCount;
-  loopCount++;
+  var wasVisited = pagesToVisit.indexOf(pageUrl) < currentIndex;
 
   if (pageUrl && !wasVisited) {
     (0, _request2.default)(pageUrl, function (error, response, body) {
+      console.log(currentIndex, new Date(), pageUrl);
+
       if (error) {
         console.log(pageUrl);
         console.log(error);
-        continueCrawling(req, res, next);
+        changedPages[changedPages.length] = { url: pageUrl, status: 404 };
+        loopBack(req, res, next);
       } else {
-        console.log(pageUrl);
         (function () {
           var statusCode = response.statusCode;
 
@@ -119,14 +164,13 @@ function requestPage(req, res, next, pageUrl) {
           if (parseFloat(statusCode) === 200 && /<?\/?html>/.test(body)) {
             collectLinks(req, res, next, pageUrl, body);
           } else {
-            continueCrawling(req, res, next);
+            loopBack(req, res, next);
           }
         })();
       }
     });
   } else {
-    // Remove the URL from 'pagesToVisit'
-    continueCrawling(req, res, next);
+    loopBack(req, res, next);
   }
 }
 
@@ -140,7 +184,7 @@ function collectLinks(req, res, next, pageUrl, body) {
   // Collect URLs from link tags (adding current domain to relative links)
   var linkTagsObj = $('a[href]');
 
-  var _loop = function _loop(i) {
+  var _loop2 = function _loop2(i) {
     var link = linkTagsObj[i];
     var linkRef = $(link).attr('href');
     var isAbsolute = /http/i.test(linkRef);
@@ -173,12 +217,30 @@ function collectLinks(req, res, next, pageUrl, body) {
   };
 
   for (var i = 0; i < linkTagsObj.length; i++) {
-    _loop(i);
+    _loop2(i);
   }
 
   pageUrl = null;
   body = null;
-  continueCrawling(req, res, next);
+  loopBack(req, res, next);
+}
+
+function loopBack(req, res, next) {
+  requestCount--;
+
+  if (requestCount === 0) {
+    console.log('toCrawl: ' + req.pagesToCrawl.length + ', changed: ' + changedPages.length + ', toVisit: ' + pagesToVisit.length);
+  }
+
+  if (requestCount === 0) {
+    if (req.pagesToCrawl.length + changedPages.length < pagesToVisit.length) {
+      continueLoop(req, res, next);
+    } else {
+      req.pagesCrawled = changedPages;
+      req.brokenLinks = brokenLinks;
+      next();
+    }
+  }
 }
 
 exports.default = checkUrls;

@@ -18,7 +18,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 function getSpreadsheet(req, res, next) {
   // First option is to use ID entered into the form, then any environment
   // variables
-  var docId = req.body.sheet;
+  var docId = /*configAuth.doc_id;*/req.body.sheet;
   var doc = new _googleSpreadsheet2.default(docId);
   setAuth(req, res, next, doc);
 }
@@ -58,10 +58,20 @@ function getWorksheets(req, res, next, doc) {
       }, 0);
       // Otherwise, delete blank URL rows
     } else {
+      // testCells(req, res, next, info);
       modifyErrorRows(req, res, next, info);
     }
   });
 }
+
+// function testCells(req, res, next, info) {
+//   const sheet = info.worksheets[2];
+//   sheet.getCells({'min-row': 10, 'min-col': 2, 'return-empty': true}, (err, cells) => {
+//     if (err) console.log(err);
+//     console.log(cells);
+//     next();
+//   });
+// }
 
 // Function for deleting rows that are missing URLs and adding status 200
 // to rows without statuses
@@ -195,19 +205,66 @@ function getUrls(req, res, next, info) {
 // After crawling, add 'pagesCrawled' info to new URLs sheet
 // (only includes pages that have changed from those in 'Existing URLs')
 function addChangedUrls(req, res, next, info) {
-  var newUrlSheet, params;
+  var pagesCrawled = req.pagesCrawled;
 
-  newUrlSheet = info.worksheets[2];
-  params = {
-    req: req,
-    res: res,
-    next: next,
-    info: info
-  };
+  var COL_COUNT = 2;
+  var newUrlSheet = info.worksheets[2];
+  // const params = {
+  //   req: req,
+  //   res: res,
+  //   next: next,
+  //   info: info
+  // };
+  var rowCount = pagesCrawled.length;
 
-  var loopCount = 0;
-  // Add rows to new URL sheet, then go to 'addBrokenLinks'
-  appendRow(newUrlSheet, req.pagesCrawled, loopCount, params, addBrokenLinks);
+  newUrlSheet.resize({
+    'rowCount': rowCount + 1,
+    'colCount': COL_COUNT
+  }, function (err) {
+    if (err) {
+      console.log(err);
+      next();
+    }
+
+    newUrlSheet.getCells({
+      'min-row': 2,
+      'min-col': 1,
+      'max-col': COL_COUNT,
+      'return-empty': true
+    }, function (err, cells) {
+      if (err) {
+        console.log(err);
+        next();
+      } else {
+        for (var i = 0; i < rowCount * COL_COUNT; i++) {
+          var thisCell = cells[i];
+          var pageIndex = Math.floor((i - COL_COUNT) / COL_COUNT);
+          var thisPage = pagesCrawled[pageIndex];
+
+          if (thisCell && thisPage) {
+            var column = thisCell.col;
+            var value = column === 1 ? thisPage.url : thisPage.status.toString();
+            thisCell.value = value;
+          }
+        }
+
+        console.log(cells);
+
+        newUrlSheet.bulkUpdateCells(cells, function (err) {
+          if (err) {
+            console.log(err);
+            next();
+          } else {
+            getEmails(req, res, next, info);
+          }
+        });
+      }
+    });
+  });
+
+  // let loopCount = 0;
+  // // Add rows to new URL sheet, then go to 'addBrokenLinks'
+  // appendRow(newUrlSheet, req.pagesCrawled, loopCount, params, addBrokenLinks);
 }
 
 // Add broken links info to 'Broken Links' sheet
