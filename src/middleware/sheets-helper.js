@@ -2,171 +2,272 @@ import GoogleSpreadsheet from 'google-spreadsheet';
 // import heapdump from 'heapdump';
 import configAuth from '../config/auth.js';
 
+const COL_COUNT = 2;
+
 // Start by getting the sheet by ID
 function getSpreadsheet(req, res, next) {
   // First option is to use ID entered into the form, then any environment
   // variables
-  const docId = /*configAuth.doc_id;*/req.body.sheet;
-  const doc = new GoogleSpreadsheet(docId);
-  setAuth(req, res, next, doc);
+  const {docId} = req.body;
+  req.googleSheets.doc = new GoogleSpreadsheet(docId);
+  setAuth(req, res, next);
 }
 
 // Get auth credentials to make changes to sheet
-function setAuth(req, res, next, doc) {
+function setAuth(req, res, next) {
   const {client_email, private_key} = configAuth;
   // Credentials obtained via environment variables imported to auth.js
   const credsJson = {client_email, private_key};
 
-  doc.useServiceAccountAuth(credsJson, function(err) {
+  req.googleSheets.doc.useServiceAccountAuth(credsJson, err => {
     if (err) {
       console.log(err);
-      res.send(err);
+      res.send(err.message);
     } else {
-      getWorksheets(req, res, next, doc);
+      getWorksheets(req, res, next);
     }
   });
 }
 
 // Get correct sheet, depending on whether your reading or writing
-function getWorksheets(req, res, next, doc) {
+function getWorksheets(req, res, next) {
+  const {doc} = req.googleSheets;
+
   doc.getInfo((err, info) => {
     if (!info) {
       res.status(400).send('The Google Sheets ID was invalid.');
     } else if (err) {
       console.log(err);
-      res.status(400).send(err);
+      res.status(400).send(err.message);
     // If you've already crawled, write rows to new URLs sheet
-    } else if (req.pagesCrawled) {
-      setTimeout(function() {
-        addChangedUrls(req, res, next, info);
-      }, 0);
-    // Otherwise, delete blank URL rows
     } else {
-      // testCells(req, res, next, info);
-      modifyErrorRows(req, res, next, info);
+      req.googleSheets.info = info;
+
+      if (req.pagesCrawled) {
+        setTimeout(() => {
+          addChangedUrls(req, res, next);
+        }, 0);
+      // Otherwise, delete blank URL rows
+      } else {
+        modifyErrorRows(req, res, next);
+      }
     }
   });
 }
 
-// function testCells(req, res, next, info) {
-//   const sheet = info.worksheets[2];
-//   sheet.getCells({'min-row': 10, 'min-col': 2, 'return-empty': true}, (err, cells) => {
-//     if (err) console.log(err);
-//     console.log(cells);
-//     next();
-//   });
-// }
-
 // Function for deleting rows that are missing URLs and adding status 200
 // to rows without statuses
-function modifyErrorRows(req, res, next, info) {
-  const sheet = info.worksheets[1];
+function modifyErrorRows(req, res, next) {
+  const existingUrlSheet = req.googleSheets.info.worksheets[1];
+  let processCount = 0;
 
-  sheet.getRows({offset: 1, orderby: 'col2'},
-  (err, rows) => {
+  existingUrlSheet.getRows((err, rows) => {
     if (err) {
       console.log(err);
-    }
+      res.send(err.message);
+    } else {
+      processCount++;
 
-    let loopCount = 0;
-    modifyRow(rows, loopCount);
+      for (let i = rows.length - 1; i > 0; i--) {
+        let thisRow = rows[i];
+
+        resetTimer(thisRow, i);
+      }
+
+      processCount--;
+      if (processCount === 0) {
+        moveNewUrls(req, res, next);
+      }
+    }
   });
 
-  // Function for modifying rows that can cause errors
-  function modifyRow(rows, loopCount) {
-    // Use last element, because row.del() will remove bottom row
-    // with same url/status
-    const thisRow = rows[rows.length - 1 - loopCount];
-    loopCount++;
+    // let loopCount = 0;
+    // modifyRow(rows, loopCount);
 
-    if (thisRow) {
-      // Delete rows without URLS, then call modifyRow again,
-      // or moveNewUrls if no more rows
-      if (!thisRow.url) {
-        thisRow.del(err => {
-          if (err) {
-            console.log(err);
-          }
+  // // Function for modifying rows that can cause errors
+  // function modifyRow(rows, loopCount) {
+  //   // Use last element, because row.del() will remove bottom row
+  //   // with same url/status
+  //   const thisRow = rows[rows.length - 1 - loopCount];
+  //   loopCount++;
+  //
+  //   if (thisRow) {
+  //     // Delete rows without URLS, then call modifyRow again,
+  //     // or moveNewUrls if no more rows
+  //     if (!thisRow.url) {
+  //       thisRow.del(err => {
+  //         if (err) {
+  //           console.log(err);
+  //         }
+  //
+  //         resetTimer(rows, loopCount);
+  //       });
+  //     // If row is complete, call modify Row again
+  //     } else if (thisRow.status) {
+  //       resetTimer(rows, loopCount);
+  //     // Add '200' to rows with empty statuses
+  //     } else {
+  //       thisRow.status = 200;
+  //       thisRow.save(err => {
+  //         if (err) {
+  //           console.log(err);
+  //         }
+  //
+  //         resetTimer(rows, loopCount);
+  //       });
+  //     }
+  //   } else {
+  //     moveNewUrls(req, res, next, info);
+  //   }
+  // }
 
-          resetTimer(rows, loopCount);
-        });
-      // If row is complete, call modify Row again
-      } else if (thisRow.status) {
-        resetTimer(rows, loopCount);
-      // Add '200' to rows with empty statuses
-      } else {
-        thisRow.status = 200;
-        thisRow.save(err => {
-          if (err) {
-            console.log(err);
-          }
-
-          resetTimer(rows, loopCount);
-        });
-      }
+  // Reset timer every 500 rows to avoid timeout error
+  function resetTimer(row, index) {
+    if (index % 500 === 0) {
+      setTimeout(checkRow(row), 0);
     } else {
-      moveNewUrls(req, res, next, info);
+      checkRow(row);
     }
   }
 
-  // Reset timer every 500 rows to avoid timeout error
-  function resetTimer(rowsArray, loopCount) {
-    if (rowsArray.length % 500 === 0) {
-      setTimeout(modifyRow(rowsArray), 0);
-    } else {
-      modifyRow(rowsArray, loopCount);
+  function checkRow(row) {
+    if (!row.url) {
+      modifyRow(row.del);
+    } else if (!row.status) {
+      row.status = 200;
+      modifyRow(row.save);
     }
+  }
+
+  function modifyRow(func) {
+    processCount++;
+    func(err => {
+      if (err) {
+        console.log(err);
+        res.send(err.message);
+      } else {
+        processCount--;
+        if (processCount === 0) {
+          moveNewUrls(req, res, next);
+        }
+      }
+    });
   }
 }
 
 // Copy URLs from 'New/Modified URLs' over to 'Existing URLs'
-function moveNewUrls(req, res, next, info) {
+function moveNewUrls(req, res, next) {
+  const {info} = req.googleSheets;
   const existingUrlSheet = info.worksheets[1];
-  const params = {
-    req: req,
-    res: res,
-    next: next,
-    info: info
-  };
-  let newUrlSheet = info.worksheets[2];
+  const newUrlSheet = info.worksheets[2];
+  let processCount = 0;
 
-  newUrlSheet.getRows(
-    {offset: 1, orderby: 'col2'},
+  newUrlSheet.getCells({
+    'min-row': 2,
+    'min-col': 1,
+    'max-col': COL_COUNT,
+    'return-empty': false
+  }, (err, newCells) => {
+    if (err) {
+      console.log(err);
+      res.send(err.message);
+    }
+
+    processCount += 2;
+    cleanUpNewSheet(newUrlSheet);
+    updateExistingSheet(existingUrlSheet, newCells);
+
+    processCount--;
+    if (processCount === 0) {
+      getUrls(req, res, next);
+    }
+  });
+
+  function cleanUpNewSheet(sheet) {
+    sheet.clear(err => {
+      if (err) {
+        console.log(err);
+        res.send(err.message);
+      }
+
+      // Clear removes everything, so put back column labels
+      sheet.setHeaderRow(
+        ['url', 'status'],
+        err => {
+          if (err) {
+            console.log(err);
+            res.send(err.message);
+          }
+
+          processCount--;
+          if (processCount === 0) {
+            getUrls(req, res, next);
+          }
+        }
+      );
+    });
+  }
+
+  function updateExistingSheet(sheet, newCells) {
+    sheet.getRows({offset: 1, orderby: 'col2'},
     (err, rows) => {
       if (err) {
         console.log(err);
+        res.send(err.message);
       }
 
-      // Rows array has a lot of extra data, so map to get
-      // only URL and status code
-      const newUrlRows = rows.map(row => {
-        return {
-          url: row.url,
-          status: row.status
-        };
-      });
+      const existingRowCount = rows.length;
+      const newRowCount = newCells.length / COL_COUNT;
+      const revisedRowCount = existingRowCount + newRowCount;
+      const revisedColCount = Math.max(COL_COUNT, existingUrlSheet.colCount);
 
-      newUrlSheet.clear(function(err) {
+      sheet.resize({
+        'rowCount': revisedRowCount,
+        'colCount': revisedColCount
+      }, err => {
         if (err) {
           console.log(err);
+          res.send(err.message);
         }
 
-        // Clear removes everything, so put back column labels
-        newUrlSheet.setHeaderRow(
-          ['url', 'status'],
-          err => {
+        sheet.getCells({
+          'min-row': existingRowCount + 1,
+          'min-col': 1,
+          'max-col': COL_COUNT,
+          'return-empty': true
+        }, (err, existingCells) => {
+          if (err) {
+            console.log(err);
+            res.send(err.message);
+          }
+
+          for (let i = 0; i < existingCells.length; i++) {
+            const thisExistingCell = existingCells[i];
+            const thisNewCell = newCells[i];
+
+            if (thisNewCell && thisNewCell.value && thisExistingCell) {
+              thisExistingCell.value = thisNewCell.value;
+            }
+          }
+
+          sheet.bulkUpdateCells(existingCells, err => {
             if (err) {
               console.log(err);
+              res.send(err.message);
             }
 
-            let loopCount = 0;
-            appendRow(existingUrlSheet, newUrlRows, loopCount, params, getUrls);
-          }
-        );
+            processCount--;
+            if (processCount === 0) {
+              getUrls(req, res, next);
+            }
+          });
+        });
       });
-    }
-  );
+    });
+  }
 }
+
+// TODO
 
 // Collect array of URLs that you want to check
 // (found in 'Existing URLs' sheet)
@@ -202,7 +303,6 @@ function getUrls(req, res, next, info) {
 // (only includes pages that have changed from those in 'Existing URLs')
 function addChangedUrls(req, res, next, info) {
   const {pagesCrawled} = req;
-  const COL_COUNT = 2;
   const newUrlSheet = info.worksheets[2];
   // const params = {
   //   req: req,
@@ -240,7 +340,7 @@ function addChangedUrls(req, res, next, info) {
             const column = thisCell.col;
             const value = column === 1 ?
               thisPage.url :
-              thisPage.status.toString();
+              thisPage.status;
             thisCell.value = value;
           }
         }
