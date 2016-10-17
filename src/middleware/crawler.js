@@ -90,7 +90,7 @@ function requestPage(req, res, next, pageUrl, currentIndex) {
         const {statusCode} = response;
         const pageObj = {
           url: pageUrl,
-          status: statusCode.toString()
+          status: statusCode
         };
         // If the page doesn't exist on Current URLs sheet,
         // add it to 'changedPages'

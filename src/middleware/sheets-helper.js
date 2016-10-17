@@ -201,7 +201,7 @@ function getUrls(req, res, next) {
         .map(function(row) {
           return {
             url: row.url.replace(/\/$/, ''),
-            status: row.status
+            status: parseFloat(row.status)
           };
         });
 
