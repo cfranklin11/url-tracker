@@ -86,8 +86,6 @@ function getWorksheets(req, res, next) {
 function modifyErrorRows(req, res, next) {
   var existingUrlSheet = req.googleSheets.info.worksheets[1];
 
-  console.log('modifyErrorRows');
-
   existingUrlSheet.getRows(function (err, rows) {
     if (err) {
       console.log(err);
@@ -109,17 +107,9 @@ function modifyErrorRows(req, res, next) {
         }
       }
 
-      processCount--;
-      if (processCount === 0) {
-        moveNewUrls(req, res, next);
-      }
+      checkProcessCount(req, res, next, moveNewUrls);
     }
   });
-
-  // Reset timer every 500 rows to avoid timeout error
-  // function resetTimer(row, index) {
-  //
-  // }
 
   function checkRow(row, timeout) {
     if (!row.url) {
@@ -128,15 +118,11 @@ function modifyErrorRows(req, res, next) {
       row.status = 200;
       modifyRow(row.save, timeout);
     } else if (timeout) {
-      processCount--;
-      if (processCount === 0) {
-        moveNewUrls(req, res, next);
-      }
+      checkProcessCount(req, res, next, moveNewUrls);
     }
   }
 
   function modifyRow(func, timeout) {
-    console.log('modifyRow');
     if (!timeout) {
       processCount++;
     }
@@ -146,10 +132,7 @@ function modifyErrorRows(req, res, next) {
         console.log(err);
         res.send(err.message);
       } else {
-        processCount--;
-        if (processCount === 0) {
-          moveNewUrls(req, res, next);
-        }
+        checkProcessCount(req, res, next, moveNewUrls);
       }
     });
   }
@@ -159,11 +142,8 @@ function modifyErrorRows(req, res, next) {
 function moveNewUrls(req, res, next) {
   var info = req.googleSheets.info;
 
-  console.log('moveNewUrls');
-
   var existingUrlSheet = info.worksheets[1];
   var newUrlSheet = info.worksheets[2];
-  var processCount = 0;
 
   newUrlSheet.getCells({
     'min-row': 2,
@@ -176,40 +156,20 @@ function moveNewUrls(req, res, next) {
       res.send(err.message);
     }
 
-    processCount += 2;
     cleanUpNewSheet(newUrlSheet);
     updateExistingSheet(existingUrlSheet, newCells);
-
-    processCount--;
-    if (processCount === 0) {
-      getUrls(req, res, next);
-    }
   });
 
   function cleanUpNewSheet(sheet) {
-    sheet.clear(function (err) {
-      if (err) {
-        console.log(err);
-        res.send(err.message);
-      }
-
-      // Clear removes everything, so put back column labels
-      sheet.setHeaderRow(['url', 'status'], function (err) {
-        if (err) {
-          console.log(err);
-          res.send(err.message);
-        }
-
-        processCount--;
-        if (processCount === 0) {
-          getUrls(req, res, next);
-        }
-      });
-    });
+    var options = {
+      sheet: sheet,
+      headers: ['url', 'status']
+    };
+    clearSheet(req, res, next, options);
   }
 
-  function updateExistingSheet(sheet, newCells) {
-    sheet.getRows({ offset: 1, orderby: 'col2' }, function (err, rows) {
+  function updateExistingSheet(existingUrlSheet, newCells) {
+    existingUrlSheet.getRows({ offset: 1, orderby: 'col2' }, function (err, rows) {
       if (err) {
         console.log(err);
         res.send(err.message);
@@ -221,7 +181,7 @@ function moveNewUrls(req, res, next) {
       var revisedRowCount = Math.max(existingRowCount + newRowCount, existingUrlSheet.rowCount);
       var revisedColCount = Math.max(COL_COUNT, existingUrlSheet.colCount);
       var options = {
-        sheet: sheet,
+        sheet: existingUrlSheet,
         rowCount: revisedRowCount,
         colCount: revisedColCount,
         minRow: minRow,
@@ -285,57 +245,82 @@ function addChangedUrls(req, res, next) {
 
     updateSheetCells(req, res, next, options);
   } else {
-    processCount--;
-    if (processCount === 0) {
-      getEmails(req, res, next);
-    }
+    checkProcessCount(req, res, next, getEmails);
   }
 }
 
 // Add broken links info to 'Broken Links' sheet
 function addBrokenLinks(req, res, next) {
-  var brokenLinks = req.brokenLinks;
   var info = req.googleSheets.info;
 
   var brokenLinkSheet = info.worksheets[3];
+  var options = {
+    sheet: brokenLinkSheet,
+    headers: ['page_url', 'link_url'],
+    callback: updateBrokenLinks
+  };
 
-  // Clear previous broken links from the sheet
-  brokenLinkSheet.clear(function (err) {
-    if (err) {
-      console.log(err);
-      res.send(err.message);
+  clearSheet(req, res, next, options);
+
+  function updateBrokenLinks(req, res, next) {
+    var brokenLinks = req.brokenLinks;
+    var info = req.googleSheets.info;
+
+    var brokenLinkSheet = info.worksheets[3];
+
+    if (brokenLinks && brokenLinks.length) {
+      req.notification = true;
+      var rowCount = Math.max(brokenLinks + 1, brokenLinkSheet.rowCount);
+      var colCount = Math.max(COL_COUNT, brokenLinkSheet.colCount);
+      var _options = {
+        sheet: brokenLinkSheet,
+        rowCount: rowCount,
+        colCount: colCount,
+        minRow: 2,
+        newCells: brokenLinks,
+        isCellToCell: false,
+        callback: getEmails
+      };
+
+      updateSheetCells(req, res, next, _options);
+    } else {
+      checkProcessCount(req, res, next, getEmails);
     }
+  }
+}
 
-    // Clear removes everything, so put back column labels
-    brokenLinkSheet.setHeaderRow(['page_url', 'link_url'], function (err) {
+// Gets e-mail addresses listed in Google Sheets to send
+// a notification e-mail
+function getEmails(req, res, next) {
+  var infoSheet = req.googleSheets.info.worksheets[0];
+
+  // heapdump.writeSnapshot((err, filename) => {
+  //   if (err) console.log(err);
+  //   console.log('dump written to', filename);
+  // });
+
+  // Only send an e-mail if there are new URLs or broken links
+  if (req.notification) {
+    infoSheet.getRows({ offset: 1, orderby: 'col2' }, function (err, rows) {
       if (err) {
         console.log(err);
         res.send(err.message);
       }
 
-      if (brokenLinks && brokenLinks.length) {
-        req.notification = true;
-        var rowCount = Math.max(brokenLinks + 1, brokenLinkSheet.rowCount);
-        var colCount = Math.max(COL_COUNT, brokenLinkSheet.colCount);
-        var options = {
-          sheet: brokenLinkSheet,
-          rowCount: rowCount,
-          colCount: colCount,
-          minRow: 2,
-          newCells: brokenLinks,
-          isCellToCell: false,
-          callback: getEmails
-        };
+      // **** NOTE: 'getRows' removes '_' from column names ****
+      var emailRow = rows[0].emailrecipients;
 
-        updateSheetCells(req, res, next, options);
-      } else {
-        processCount--;
-        if (processCount === 0) {
-          getEmails(req, res, next);
-        }
+      if (emailRow) {
+        // Save e-mail list as array to pass on to Postmark
+        var emails = emailRow.split(/,\s*/g);
+        req.emailList = emails;
       }
+      next();
     });
-  });
+  } else {
+    console.log('No new info');
+    next();
+  }
 }
 
 function updateSheetCells(req, res, next, options) {
@@ -391,46 +376,45 @@ function updateSheetCells(req, res, next, options) {
           res.send(err.message);
         }
 
-        processCount--;
-        if (processCount === 0) {
-          callback(req, res, next);
-        }
+        checkProcessCount(req, res, next, callback);
       });
     });
   });
 }
 
-// Gets e-mail addresses listed in Google Sheets to send
-// a notification e-mail
-function getEmails(req, res, next) {
-  var infoSheet = req.googleSheets.info.worksheets[0];
+function clearSheet(req, res, next, options) {
+  var sheet = options.sheet;
+  var headers = options.headers;
+  var callback = options.callback;
 
-  // heapdump.writeSnapshot((err, filename) => {
-  //   if (err) console.log(err);
-  //   console.log('dump written to', filename);
-  // });
 
-  // Only send an e-mail if there are new URLs or broken links
-  if (req.notification) {
-    infoSheet.getRows({ offset: 1, orderby: 'col2' }, function (err, rows) {
+  sheet.clear(function (err) {
+    if (err) {
+      console.log(err);
+      res.send(err.message);
+    }
+
+    // Clear removes everything, so put back column labels
+    sheet.setHeaderRow(headers, function (err) {
       if (err) {
         console.log(err);
         res.send(err.message);
       }
 
-      // **** NOTE: 'getRows' removes '_' from column names ****
-      var emailRow = rows[0].emailrecipients;
-
-      if (emailRow) {
-        // Save e-mail list as array to pass on to Postmark
-        var emails = emailRow.split(/,\s*/g);
-        req.emailList = emails;
+      if (callback) {
+        callback(req, res, next);
       }
-      next();
     });
-  } else {
-    console.log('No new info');
-    next();
+  });
+}
+
+function checkProcessCount(req, res, next, callback) {
+  if (processCount > 0) {
+    processCount--;
+  }
+
+  if (processCount === 0) {
+    callback(req, res, next);
   }
 }
 

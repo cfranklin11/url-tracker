@@ -38,62 +38,39 @@ function checkUrls(req, res, next) {
 }
 
 function continueLoop(req, res, next) {
-  for (loopCount; loopCount < pagesToVisit.length; loopCount++) {
-    const thisPageToVisit = pagesToVisit[loopCount];
+  if (loopCount < pagesToVisit.length) {
+    for (loopCount; loopCount < pagesToVisit.length; loopCount++) {
+      const thisPageToVisit = pagesToVisit[loopCount];
 
-    if (thisPageToVisit) {
-      const currentCount = loopCount;
+      if (thisPageToVisit) {
+        const currentCount = loopCount;
 
-      if (loopCount % 500 === 0) {
-        // heapdump.writeSnapshot((err, filename) => {
-        //   if (err) console.log(err);
-        //   console.log('dump written to', filename);
-        // });
+        if (loopCount % 500 === 0) {
+          // heapdump.writeSnapshot((err, filename) => {
+          //   if (err) console.log(err);
+          //   console.log('dump written to', filename);
+          // });
 
-        setTimeout(() => {
+          setTimeout(() => {
+            requestCount++;
+            requestPage(req, res, next, thisPageToVisit, currentCount);
+          }, 0);
+        } else {
           requestCount++;
           requestPage(req, res, next, thisPageToVisit, currentCount);
-        }, 0);
+        }
       } else {
-        requestCount++;
-        requestPage(req, res, next, thisPageToVisit, currentCount);
+        req.pagesCrawled = changedPages;
+        req.brokenLinks = brokenLinks;
+        next();
       }
-    } else {
-      req.pagesCrawled = changedPages;
-      req.brokenLinks = brokenLinks;
-      next();
     }
+  } else {
+    req.pagesCrawled = changedPages;
+    req.brokenLinks = brokenLinks;
+    next();
   }
 }
-
-// The hub of the crawler, all functions loop back here until all pages
-// have been crawled
-// function continueCrawling(req, res, next) {
-//   const thisPageToVisit = pagesToVisit[loopCount];
-//
-//   if (thisPageToVisit) {
-//     // Periodically reset timeout to keep the crawler going
-//     if (loopCount % 500 === 0) {
-//       // heapdump.writeSnapshot((err, filename) => {
-//       //   if (err) console.log(err);
-//       //   console.log('dump written to', filename);
-//       // });
-//
-//       setTimeout(() => {
-//         requestPage(req, res, next, thisPageToVisit);
-//       }, 0);
-//     } else {
-//       requestPage(req, res, next, thisPageToVisit);
-//     }
-//
-//   // If there are no more pages to visit, move on to adding info
-//   // to Google Sheets
-//   } else {
-//     req.pagesCrawled = changedPages;
-//     req.brokenLinks = brokenLinks;
-//     next();
-//   }
-// }
 
 // Makes HTTP requests
 function requestPage(req, res, next, pageUrl, currentIndex) {
