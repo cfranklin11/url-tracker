@@ -1,8 +1,11 @@
+/* eslint no-trailing-spaces: 0 */
+
 import GoogleSpreadsheet from 'google-spreadsheet';
 // import heapdump from 'heapdump';
 import configAuth from '../config/auth.js';
 
 const COL_COUNT = 2;
+let processCount = 0;
 
 // Start by getting the sheet by ID
 function getSpreadsheet(req, res, next) {
@@ -62,7 +65,6 @@ function getWorksheets(req, res, next) {
 // to rows without statuses
 function modifyErrorRows(req, res, next) {
   const existingUrlSheet = req.googleSheets.info.worksheets[1];
-  let processCount = 0;
 
   existingUrlSheet.getRows((err, rows) => {
     if (err) {
@@ -74,7 +76,15 @@ function modifyErrorRows(req, res, next) {
       for (let i = rows.length - 1; i > 0; i--) {
         let thisRow = rows[i];
 
-        resetTimer(thisRow, i);
+        // resetTimer(thisRow, i);
+        if (i % 500 === 0) {
+          processCount++;
+          const timeout = true;
+
+          setTimeout(checkRow(thisRow, timeout), 0);
+        } else {
+          checkRow(thisRow);
+        }
       }
 
       processCount--;
@@ -85,25 +95,26 @@ function modifyErrorRows(req, res, next) {
   });
 
   // Reset timer every 500 rows to avoid timeout error
-  function resetTimer(row, index) {
-    if (index % 500 === 0) {
-      setTimeout(checkRow(row), 0);
-    } else {
-      checkRow(row);
-    }
-  }
+  // function resetTimer(row, index) {
+  //
+  // }
 
-  function checkRow(row) {
+  function checkRow(row, timeout) {
     if (!row.url) {
-      modifyRow(row.del);
+      modifyRow(row.del, timeout);
     } else if (!row.status) {
       row.status = 200;
-      modifyRow(row.save);
+      modifyRow(row.save, timeout);
+    } else if (processCount === 0) {
+      moveNewUrls(req, res, next);
     }
   }
 
-  function modifyRow(func) {
-    processCount++;
+  function modifyRow(func, timeout) {
+    if (!timeout) {
+      processCount++;
+    }
+
     func(err => {
       if (err) {
         console.log(err);
@@ -173,60 +184,31 @@ function moveNewUrls(req, res, next) {
 
   function updateExistingSheet(sheet, newCells) {
     sheet.getRows({offset: 1, orderby: 'col2'},
-    (err, rows) => {
-      if (err) {
-        console.log(err);
-        res.send(err.message);
-      }
-
-      const existingRowCount = rows.length;
-      const newRowCount = newCells.length / COL_COUNT;
-      const revisedRowCount = existingRowCount + newRowCount;
-      const revisedColCount = Math.max(COL_COUNT, existingUrlSheet.colCount);
-
-      sheet.resize({
-        'rowCount': revisedRowCount,
-        'colCount': revisedColCount
-      }, err => {
+      (err, rows) => {
         if (err) {
           console.log(err);
           res.send(err.message);
         }
 
-        sheet.getCells({
-          'min-row': existingRowCount + 1,
-          'min-col': 1,
-          'max-col': COL_COUNT,
-          'return-empty': true
-        }, (err, existingCells) => {
-          if (err) {
-            console.log(err);
-            res.send(err.message);
-          }
+        const existingRowCount = rows.length;
+        const minRow = existingRowCount + 1;
+        const newRowCount = newCells.length / COL_COUNT;
+        const revisedRowCount =
+          Math.max(existingRowCount + newRowCount, existingUrlSheet.rowCount);
+        const revisedColCount = Math.max(COL_COUNT, existingUrlSheet.colCount);
+        const options = {
+          sheet,
+          rowCount: revisedRowCount,
+          colCount: revisedColCount,
+          minRow,
+          newCells,
+          isCellToCell: true,
+          callback: getUrls
+        };
 
-          for (let i = 0; i < existingCells.length; i++) {
-            const thisExistingCell = existingCells[i];
-            const thisNewCell = newCells[i];
-
-            if (thisNewCell && thisNewCell.value && thisExistingCell) {
-              thisExistingCell.value = thisNewCell.value;
-            }
-          }
-
-          sheet.bulkUpdateCells(existingCells, err => {
-            if (err) {
-              console.log(err);
-              res.send(err.message);
-            }
-
-            processCount--;
-            if (processCount === 0) {
-              getUrls(req, res, next);
-            }
-          });
-        });
-      });
-    });
+        updateSheetCells(req, res, next, options);
+      }
+    );
   }
 }
 
@@ -266,57 +248,70 @@ function getUrls(req, res, next) {
 function addChangedUrls(req, res, next) {
   const {pagesCrawled, googleSheets} = req;
   const newUrlSheet = googleSheets.info.worksheets[2];
-  const rowCount = pagesCrawled.length;
+  const rowCount = Math.max(pagesCrawled.length + 1, newUrlSheet.rowCount);
+  const colCount = Math.max(COL_COUNT, newUrlSheet.colCount);
+  const options = {
+    sheet: newUrlSheet,
+    rowCount,
+    colCount,
+    minRow: 2,
+    newCells: pagesCrawled,
+    isCellToCell: false,
+    callback: addBrokenLinks
+  };
 
-  newUrlSheet.resize({
-    'rowCount': rowCount + 1,
-    'colCount': Math.max(COL_COUNT, newUrlSheet.colCount)
-  }, err => {
-    if (err) {
-      console.log(err);
-      res.send(err.message);
-    }
+  updateSheetCells(req, res, next, options);
 
-    newUrlSheet.getCells({
-      'min-row': 2,
-      'min-col': 1,
-      'max-col': COL_COUNT,
-      'return-empty': true
-    }, (err, cells) => {
-      if (err) {
-        console.log(err);
-        res.send(err.message);
-      } else {
-        for (let i = 0; i < rowCount * COL_COUNT; i++) {
-          let thisCell = cells[i];
-          const pageIndex = Math.floor(i / COL_COUNT);
-          const thisPage = pagesCrawled[pageIndex];
-
-          if (thisCell && thisPage) {
-            const column = thisCell.col;
-            const value = column === 1 ?
-              thisPage.url :
-              thisPage.status;
-            thisCell.value = value;
-          }
-        }
-
-        newUrlSheet.bulkUpdateCells(cells, err => {
-          if (err) {
-            console.log(err);
-            res.send(err.message);
-          } else {
-            addBrokenLinks(req, res, next);
-          }
-        });
-      }
-    });
-  });
+  // newUrlSheet.resize({
+  //   'rowCount': rowCount,
+  //   'colCount': colCount
+  // }, err => {
+  //   if (err) {
+  //     console.log(err);
+  //     res.send(err.message);
+  //   }
+  //
+  //   newUrlSheet.getCells({
+  //     'min-row': 2,
+  //     'min-col': 1,
+  //     'max-col': COL_COUNT,
+  //     'return-empty': true
+  //   }, (err, cells) => {
+  //     if (err) {
+  //       console.log(err);
+  //       res.send(err.message);
+  //     } else {
+  //       for (let i = 0; i < rowCount * COL_COUNT; i++) {
+  //         let thisCell = cells[i];
+  //         const pageIndex = Math.floor(i / COL_COUNT);
+  //         const thisPage = pagesCrawled[pageIndex];
+  //
+  //         if (thisCell && thisPage) {
+  //           const column = thisCell.col;
+  //           const value = column === 1 ?
+  //             thisPage.url :
+  //             thisPage.status;
+  //           thisCell.value = value;
+  //         }
+  //       }
+  //
+  //       newUrlSheet.bulkUpdateCells(cells, err => {
+  //         if (err) {
+  //           console.log(err);
+  //           res.send(err.message);
+  //         } else {
+  //           addBrokenLinks(req, res, next);
+  //         }
+  //       });
+  //     }
+  //   });
+  // });
 }
 
 // Add broken links info to 'Broken Links' sheet
-function addBrokenLinks(req, res, next, info) {
-  const brokenLinkSheet = req.googleSheets.info.worksheets[3];
+function addBrokenLinks(req, res, next) {
+  const {brokenLinks, googleSheets: {info}} = req;
+  const brokenLinkSheet = info.worksheets[3];
 
   // Clear previous broken links from the sheet
   brokenLinkSheet.clear(function(err) {
@@ -334,82 +329,137 @@ function addBrokenLinks(req, res, next, info) {
           res.send(err.message);
         }
 
+        const rowCount =
+          Math.max(req.brokenLinks + 1, brokenLinkSheet.rowCount);
+        const colCount = Math.max(COL_COUNT, brokenLinkSheet.colCount);
+        const options = {
+          sheet: brokenLinkSheet,
+          rowCount,
+          colCount,
+          minRow: 2,
+          newCells: brokenLinks,
+          isCellToCell: false,
+          callback: getEmails
+        };
+
+        updateSheetCells(req, res, next, options);
+
         // Add rows to broken links sheet, then go to 'getEmails'
-        brokenLinkSheet.resize({
-          'rowCount': req.brokenLinks + 1,
-          'colCount': Math.max(COL_COUNT, brokenLinkSheet.colCount)
-        }, err => {
-          if (err) {
-            console.log(err);
-            res.send(err.message);
-          }
-
-          brokenLinkSheet.getCells({
-            'min-row': 2,
-            'min-col': 1,
-            'max-col': COL_COUNT
-          }, (err, cells) => {
-            if (err) {
-              console.log(err);
-              res.send(err.message);
-            }
-
-            const {brokenLinks} = req;
-
-            for (let i = 0; i < cells.length; i++) {
-              const thisCell = cells[i];
-              const column = thisCell.col;
-              const thisLink = brokenLinks[i];
-
-              if (thisLink && thisCell) {
-                const value = column === 1 ?
-                  thisLink.url :
-                  thisLink.status;
-                thisCell.value = value;
-              }
-            }
-
-            brokenLinkSheet.bulkUpdateCells(cells, err => {
-              getEmails(req, res, next);
-            });
-          });
-        });
+        // brokenLinkSheet.resize({
+        //   'rowCount': rowCount,
+        //   'colCount': colCount
+        // }, err => {
+        //   if (err) {
+        //     console.log(err);
+        //     res.send(err.message);
+        //   }
+        //
+        //   brokenLinkSheet.getCells({
+        //     'min-row': 2,
+        //     'min-col': 1,
+        //     'max-col': COL_COUNT
+        //   }, (err, cells) => {
+        //     if (err) {
+        //       console.log(err);
+        //       res.send(err.message);
+        //     }
+        //
+        //     const {brokenLinks} = req;
+        //
+        //     for (let i = 0; i < cells.length; i++) {
+        //       const thisCell = cells[i];
+        //       const column = thisCell.col;
+        //       const linkIndex = Math.floor(i / COL_COUNT);
+        //       const thisLink = brokenLinks[linkIndex];
+        //
+        //       if (thisLink && thisCell) {
+        //         const value = column === 1 ?
+        //           thisLink.page_url :
+        //           thisLink.link_url;
+        //         thisCell.value = value;
+        //       }
+        //     }
+        //
+        //     brokenLinkSheet.bulkUpdateCells(cells, err => {
+        //       if (err) {
+        //         console.log(err);
+        //         res.send(err);
+        //       }
+        //
+        //       getEmails(req, res, next);
+        //     });
+        //   });
+        // });
       }
     );
   });
 }
 
-// Function for adding rows to a given sheet
-function appendRow(sheet, rowsArray, loopCount, params, callback) {
-  const thisRow = rowsArray[loopCount];
-  const {next, req, res, info} = params;
-  loopCount++;
+function updateSheetCells(req, res, next, options) {
+  const {
+    sheet,
+    rowCount,
+    colCount,
+    minRow,
+    newCells,
+    isCellToCell,
+    callback
+  } = options;
 
-  // If there's another row to add, add it and repeat 'appendRow'
-  if (thisRow) {
-    sheet.addRow(thisRow, err => {
+  sheet.resize({
+    'rowCount': rowCount,
+    'colCount': colCount
+  }, err => {
+    if (err) {
+      console.log(err);
+      res.send(err.message);
+    }
+
+    sheet.getCells({
+      'min-row': minRow,
+      'min-col': 1,
+      'max-col': COL_COUNT,
+      'return-empty': true
+    }, (err, existingCells) => {
       if (err) {
         console.log(err);
+        res.send(err.message);
       }
 
-      // Only send e-mail notification if new rows are added
-      req.notification = true;
+      const properties = sheet.id === 4 ?
+        ['page_url', 'link_url'] :
+        ['url', 'status'];
 
-      if (rowsArray.length % 500 === 0) {
-        // heapdump.writeSnapshot((err, filename) => {
-        //   if (err) console.log(err);
-        //   console.log('dump written to', filename);
-        // });
+      for (let i = 0; i < existingCells.length; i++) {
+        const thisExistingCell = existingCells[i];
+        const thisNewCell = isCellToCell ?
+          newCells[i] :
+          newCells[Math.floor(i / COL_COUNT)];
 
-        setTimeout(appendRow(sheet, rowsArray, loopCount, params, callback), 0);
-      } else {
-        appendRow(sheet, rowsArray, loopCount, params, callback);
+        if (thisNewCell && thisExistingCell) {
+          if (isCellToCell) {
+            thisExistingCell.value = thisNewCell.value;
+          } else {
+            const propertyIndex = thisExistingCell.col - 1;
+            const value = thisNewCell[properties[propertyIndex]];
+            thisExistingCell.value = value;
+          }
+        }
       }
+
+      sheet.bulkUpdateCells(existingCells, err => {
+        if (err) {
+          console.log(err);
+          res.send(err.message);
+        }
+
+        processCount--;
+        if (processCount === 0) {
+          callback(req, res, next);
+        }
+      });
     });
-  // Otherwise, invoke callback
-  } else {
-    callback(req, res, next, info);
-  }
+  });
 }
 
 // Gets e-mail addresses listed in Google Sheets to send
