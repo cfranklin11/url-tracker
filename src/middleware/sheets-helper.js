@@ -96,11 +96,6 @@ function modifyErrorRows(req, res, next) {
     }
   });
 
-  // Reset timer every 500 rows to avoid timeout error
-  // function resetTimer(row, index) {
-  //
-  // }
-
   function checkRow(row, timeout) {
     if (!row.url) {
       modifyRow(row.del, timeout);
@@ -139,7 +134,6 @@ function moveNewUrls(req, res, next) {
   const {info} = req.googleSheets;
   const existingUrlSheet = info.worksheets[1];
   const newUrlSheet = info.worksheets[2];
-  let processCount = 0;
 
   newUrlSheet.getCells({
     'min-row': 2,
@@ -152,8 +146,8 @@ function moveNewUrls(req, res, next) {
       res.send(err.message);
     }
 
-    processCount += 2;
     cleanUpNewSheet(newUrlSheet);
+    processCount = 1;
     updateExistingSheet(existingUrlSheet, newCells);
 
     processCount--;
@@ -163,28 +157,11 @@ function moveNewUrls(req, res, next) {
   });
 
   function cleanUpNewSheet(sheet) {
-    sheet.clear(err => {
-      if (err) {
-        console.log(err);
-        res.send(err.message);
-      }
-
-      // Clear removes everything, so put back column labels
-      sheet.setHeaderRow(
-        ['url', 'status'],
-        err => {
-          if (err) {
-            console.log(err);
-            res.send(err.message);
-          }
-
-          processCount--;
-          if (processCount === 0) {
-            getUrls(req, res, next);
-          }
-        }
-      );
-    });
+    const options = {
+      sheet,
+      headers: ['url', 'status']
+    };
+    clearSheet(req, res, next, options);
   }
 
   function updateExistingSheet(sheet, newCells) {
@@ -279,50 +256,43 @@ function addChangedUrls(req, res, next) {
 
 // Add broken links info to 'Broken Links' sheet
 function addBrokenLinks(req, res, next) {
-  const {brokenLinks, googleSheets: {info}} = req;
+  const {info} = req.googleSheets;
   const brokenLinkSheet = info.worksheets[3];
+  const options = {
+    sheet: brokenLinkSheet,
+    headers: ['page_url', 'link_url'],
+    callback: updateBrokenLinks
+  };
 
-  // Clear previous broken links from the sheet
-  brokenLinkSheet.clear(function(err) {
-    if (err) {
-      console.log(err);
-      res.send(err.message);
-    }
+  clearSheet(req, res, next, options);
 
-    // Clear removes everything, so put back column labels
-    brokenLinkSheet.setHeaderRow(
-      ['page_url', 'link_url'],
-      err => {
-        if (err) {
-          console.log(err);
-          res.send(err.message);
-        }
+  function updateBrokenLinks(req, res, next) {
+    const {brokenLinks, googleSheets: {info}} = req;
+    const brokenLinkSheet = info.worksheets[3];
 
-        if (brokenLinks && brokenLinks.length) {
-          req.notification = true;
-          const rowCount =
-            Math.max(brokenLinks + 1, brokenLinkSheet.rowCount);
-          const colCount = Math.max(COL_COUNT, brokenLinkSheet.colCount);
-          const options = {
-            sheet: brokenLinkSheet,
-            rowCount,
-            colCount,
-            minRow: 2,
-            newCells: brokenLinks,
-            isCellToCell: false,
-            callback: getEmails
-          };
+    if (brokenLinks && brokenLinks.length) {
+      req.notification = true;
+      const rowCount =
+        Math.max(brokenLinks + 1, brokenLinkSheet.rowCount);
+      const colCount = Math.max(COL_COUNT, brokenLinkSheet.colCount);
+      const options = {
+        sheet: brokenLinkSheet,
+        rowCount,
+        colCount,
+        minRow: 2,
+        newCells: brokenLinks,
+        isCellToCell: false,
+        callback: getEmails
+      };
 
-          updateSheetCells(req, res, next, options);
-        } else {
-          processCount--;
-          if (processCount === 0) {
-            getEmails(req, res, next);
-          }
-        }
+      updateSheetCells(req, res, next, options);
+    } else {
+      processCount--;
+      if (processCount === 0) {
+        getEmails(req, res, next);
       }
-    );
-  });
+    }
+  }
 }
 
 function updateSheetCells(req, res, next, options) {
@@ -389,6 +359,32 @@ function updateSheetCells(req, res, next, options) {
         }
       });
     });
+  });
+}
+
+function clearSheet(req, res, next, options) {
+  const {sheet, headers, callback} = options;
+
+  sheet.clear(err => {
+    if (err) {
+      console.log(err);
+      res.send(err.message);
+    }
+
+    // Clear removes everything, so put back column labels
+    sheet.setHeaderRow(
+      headers,
+      err => {
+        if (err) {
+          console.log(err);
+          res.send(err.message);
+        }
+
+        if (callback) {
+          callback(req, res, next);
+        }
+      }
+    );
   });
 }
 

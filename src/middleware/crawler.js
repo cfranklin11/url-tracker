@@ -35,14 +35,6 @@ function checkUrls(req, res, next) {
   }
 
   continueLoop(req, res, next);
-
-    // else {
-    //   req.pagesCrawled = changedPages;
-    //   req.brokenLinks = brokenLinks;
-    //   next();
-    // }
-
-  // continueCrawling(req, res, next);
 }
 
 function continueLoop(req, res, next) {
