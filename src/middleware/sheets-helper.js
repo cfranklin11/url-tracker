@@ -12,20 +12,35 @@ function getSpreadsheet(req, res, next) {
   // variables
   const {docId} = req.body;
   req.googleSheets = {doc: new GoogleSpreadsheet(docId)};
-  const expressObjects = [req, res, next];
 
-  setAuth(...expressObjects)
-    .then(updatedExpressObjects => {
-      return getWorksheets(...updatedExpressObjects);
+  setAuth(req, res, next)
+    .then((req, res, next) => {
+      return getWorksheets(req, res, next);
     })
-    .then(updatedExpressObjects => {
-      const [updatedReq] = updatedExpressObjects;
+    .then((req, res, next) => {
+      if (req.pagesCrawled) {
+        timeout(req, res, next)
+          .then((req, res, next) => {
+            const urlsPromise = addChangedUrls(req, res, next);
+            const linksPromise = addBrokenLinks(req, res, next);
 
-      if (updatedReq.pagesCrawled) {
-        updateUrls(...updatedExpressObjects);
+            Promise.all([urlsPromise, linksPromise])
+              .then(results => {
+                getEmails(req, res, next);
+              });
+          });
       // Otherwise, delete blank URL rows
       } else {
-        modifyErrorRows(...updatedExpressObjects);
+        modifyErrorRows(req, res, next)
+          .then((req, res, next) => {
+            return moveNewUrls(req, res, next);
+          })
+          .then((req, res, next) => {
+            next();
+          })
+          .catch(err => {
+            console.log(err);
+          });
       }
     })
     .catch(err => {
@@ -33,13 +48,12 @@ function getSpreadsheet(req, res, next) {
     });
 }
 
-function updateUrls(req, res, next) {
-  const updatedExpressObjects = [req, res, next];
-
-  setTimeout(() => {
-    addChangedUrls(...updatedExpressObjects);
-    addBrokenLinks(...updatedExpressObjects);
-  }, 0);
+function timeout(req, res, next) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      resolve(req, res, next);
+    }, 0);
+  });
 }
 
 // Get auth credentials to make changes to sheet
@@ -143,7 +157,8 @@ function modifyErrorRows(req, res, next) {
 }
 
 // Copy URLs from 'New/Modified URLs' over to 'Existing URLs'
-function moveNewUrls(info) {
+function moveNewUrls(req, res, next) {
+  const {info} = req.googleSheets;
   const existingUrlSheet = info.worksheets[1];
   const newUrlSheet = info.worksheets[2];
 
@@ -165,7 +180,7 @@ function moveNewUrls(info) {
 
       const clearPromise = clearSheet(clearOptions)
         .then(msg => {
-          console.log(msg);
+          return msg;
         })
         .catch(err => {
           console.log(err);
@@ -184,7 +199,8 @@ function moveNewUrls(info) {
       Promise.all([clearPromise, updatePromise])
         .then(results => {
           console.log(results[0]);
-          resolve(results[1]);
+          req.pagesToCrawl = results[1];
+          resolve(req, res, next);
         });
     });
   });
@@ -283,6 +299,8 @@ function addChangedUrls(req, res, next) {
   });
 }
 
+// TODO
+
 // Add broken links info to 'Broken Links' sheet
 function addBrokenLinks(req, res, next) {
   const {info} = req.googleSheets;
@@ -293,7 +311,7 @@ function addBrokenLinks(req, res, next) {
     callback: updateBrokenLinks
   };
 
-  clearSheet(req, res, next, options);
+  clearSheet(options);
 
   function updateBrokenLinks(req, res, next) {
     const {brokenLinks, googleSheets: {info}} = req;
@@ -412,8 +430,6 @@ function updateSheetCells(options) {
           } else {
             resolve(sheet);
           }
-
-          // checkProcessCount(req, res, next, callback);
         });
       });
     });
@@ -424,50 +440,22 @@ function clearSheet(options) {
   const {sheet, headers} = options;
 
   return new Promise((resolve, reject) => {
-    gsClear(sheet)
-      .then(() => {
-        return gsSetHeaderRow(headers);
-      })
-      .catch(err => {
-        console.log(err);
-      });
+    sheet.clear(err => {
+      if (err) {
+        reject(err);
+      } else {
+        sheet.setHeaderRow(
+        headers,
+        err => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve('clear done');
+          }
+        });
+      }
+    });
   });
-
-  function gsClear(sheet) {
-    return new Promise((resolve, reject) => {
-      sheet.clear(err => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
-
-  function gsSetHeaderRow(headers) {
-    return new Promise((resolve, reject) => {
-      sheet.setHeaderRow(
-      headers,
-      err => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve('clear done');
-        }
-      });
-    });
-  }
 }
-
-// function checkProcessCount(req, res, next, callback) {
-//   if (processCount > 0) {
-//     processCount--;
-//   }
-//
-//   if (processCount === 0) {
-//     callback(req, res, next);
-//   }
-// }
 
 export default getSpreadsheet;
