@@ -4,6 +4,11 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
+var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }(); /* eslint no-trailing-spaces: 0 */
+
+// import heapdump from 'heapdump';
+
+
 var _googleSpreadsheet = require('google-spreadsheet');
 
 var _googleSpreadsheet2 = _interopRequireDefault(_googleSpreadsheet);
@@ -14,11 +19,11 @@ var _auth2 = _interopRequireDefault(_auth);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-/* eslint no-trailing-spaces: 0 */
+function _toArray(arr) { return Array.isArray(arr) ? arr : Array.from(arr); }
+
+function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
 
 var COL_COUNT = 2;
-// import heapdump from 'heapdump';
-
 var processCount = 0;
 
 // Start by getting the sheet by ID
@@ -27,57 +32,100 @@ function getSpreadsheet(req, res, next) {
   // variables
   var docId = req.body.docId;
 
-  req.googleSheets = {
-    doc: new _googleSpreadsheet2.default(docId)
-  };
+  req.googleSheets = { doc: new _googleSpreadsheet2.default(docId) };
+  var expressObjects = [req, res, next];
 
-  setAuth(req, res, next);
+  var newExpressObjects = setAuth(expressObjects).then(function (updatedExpressObjects) {
+    return getWorksheets(updatedExpressObjects);
+  }).then(function (updatedExpressObjects) {
+    console.log(!!updatedExpressObjects[0], !!updatedExpressObjects[1], !!updatedExpressObjects[2]);
+
+    return updatedExpressObjects;
+  }).catch(function (err) {
+    console.log(err);
+  });
+
+  console.log(!!newExpressObjects[0], !!newExpressObjects[1], !!newExpressObjects[2]);
+
+
+  var _newExpressObjects = _slicedToArray(newExpressObjects, 1);
+
+  var updatedReq = _newExpressObjects[0];
+
+
+  if (updatedReq.pagesCrawled) {
+    setTimeout(function () {
+      processCount = 2;
+      addChangedUrls.apply(undefined, _toConsumableArray(newExpressObjects));
+      addBrokenLinks.apply(undefined, _toConsumableArray(newExpressObjects));
+    }, 0);
+    // Otherwise, delete blank URL rows
+  } else {
+    modifyErrorRows.apply(undefined, _toConsumableArray(newExpressObjects));
+  }
 }
 
 // Get auth credentials to make changes to sheet
-function setAuth(req, res, next) {
+function setAuth(expressObjects) {
   var client_email = _auth2.default.client_email;
   var private_key = _auth2.default.private_key;
   // Credentials obtained via environment variables imported to auth.js
 
   var credsJson = { client_email: client_email, private_key: private_key };
 
-  req.googleSheets.doc.useServiceAccountAuth(credsJson, function (err) {
-    if (err) {
-      console.log(err);
-      res.send(err.message);
-    } else {
-      getWorksheets(req, res, next);
-    }
+  var _expressObjects = _toArray(expressObjects);
+
+  var req = _expressObjects[0];
+
+  var otherExpressObjects = _expressObjects.slice(1);
+
+  return new Promise(function (resolve, reject) {
+    req.googleSheets.doc.useServiceAccountAuth(credsJson, function (err) {
+      if (err) {
+        reject(err);
+      } else {
+        var updatedExpressObjects = [req].concat(otherExpressObjects);
+        resolve(updatedExpressObjects);
+      }
+    });
   });
 }
 
 // Get correct sheet, depending on whether your reading or writing
-function getWorksheets(req, res, next) {
+function getWorksheets(expressObjects) {
+  var _expressObjects2 = _toArray(expressObjects);
+
+  var req = _expressObjects2[0];
+
+  var otherExpressObjects = _expressObjects2.slice(1);
+
   var doc = req.googleSheets.doc;
 
 
-  doc.getInfo(function (err, info) {
-    if (!info) {
-      res.status(400).send('The Google Sheets ID was invalid.');
-    } else if (err) {
-      console.log(err);
-      res.status(400).send(err.message);
-      // If you've already crawled, write rows to new URLs sheet
-    } else {
-      req.googleSheets.info = info;
-
-      if (req.pagesCrawled) {
-        setTimeout(function () {
-          processCount = 2;
-          addChangedUrls(req, res, next);
-          addBrokenLinks(req, res, next);
-        }, 0);
-        // Otherwise, delete blank URL rows
+  return new Promise(function (resolve, reject) {
+    doc.getInfo(function (err, info) {
+      if (!info) {
+        reject(Error('The Google Sheets ID was invalid.'));
+      } else if (err) {
+        reject(err);
+        // If you've already crawled, write rows to new URLs sheet
       } else {
-        modifyErrorRows(req, res, next);
+        req.googleSheets.info = info;
+        var updatedExpressObjects = [req].concat(otherExpressObjects);
+        resolve(updatedExpressObjects);
+
+        // if (req.pagesCrawled) {
+        //   setTimeout(() => {
+        //     processCount = 2;
+        //     addChangedUrls(req, res, next);
+        //     addBrokenLinks(req, res, next);
+        //   }, 0);
+        // // Otherwise, delete blank URL rows
+        // } else {
+        //   modifyErrorRows(req, res, next);
+        // }
       }
-    }
+    });
   });
 }
 

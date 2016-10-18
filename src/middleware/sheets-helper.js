@@ -5,18 +5,41 @@ import GoogleSpreadsheet from 'google-spreadsheet';
 import configAuth from '../config/auth.js';
 
 const COL_COUNT = 2;
-let processCount = 0;
 
 // Start by getting the sheet by ID
 function getSpreadsheet(req, res, next) {
   // First option is to use ID entered into the form, then any environment
   // variables
   const {docId} = req.body;
-  req.googleSheets = {
-    doc: new GoogleSpreadsheet(docId)
-  };
+  req.googleSheets = {doc: new GoogleSpreadsheet(docId)};
+  const expressObjects = [req, res, next];
 
-  setAuth(req, res, next);
+  setAuth(...expressObjects)
+    .then(updatedExpressObjects => {
+      return getWorksheets(...updatedExpressObjects);
+    })
+    .then(updatedExpressObjects => {
+      const [updatedReq] = updatedExpressObjects;
+
+      if (updatedReq.pagesCrawled) {
+        updateUrls(...updatedExpressObjects);
+      // Otherwise, delete blank URL rows
+      } else {
+        modifyErrorRows(...updatedExpressObjects);
+      }
+    })
+    .catch(err => {
+      console.log(err);
+    });
+}
+
+function updateUrls(req, res, next) {
+  const updatedExpressObjects = [req, res, next];
+
+  setTimeout(() => {
+    addChangedUrls(...updatedExpressObjects);
+    addBrokenLinks(...updatedExpressObjects);
+  }, 0);
 }
 
 // Get auth credentials to make changes to sheet
@@ -25,13 +48,15 @@ function setAuth(req, res, next) {
   // Credentials obtained via environment variables imported to auth.js
   const credsJson = {client_email, private_key};
 
-  req.googleSheets.doc.useServiceAccountAuth(credsJson, err => {
-    if (err) {
-      console.log(err);
-      res.send(err.message);
-    } else {
-      getWorksheets(req, res, next);
-    }
+  return new Promise((resolve, reject) => {
+    req.googleSheets.doc.useServiceAccountAuth(credsJson, err => {
+      if (err) {
+        reject(err);
+      } else {
+        const updatedExpressObjects = [req, res, next];
+        resolve(updatedExpressObjects);
+      }
+    });
   });
 }
 
@@ -39,27 +64,19 @@ function setAuth(req, res, next) {
 function getWorksheets(req, res, next) {
   const {doc} = req.googleSheets;
 
-  doc.getInfo((err, info) => {
-    if (!info) {
-      res.status(400).send('The Google Sheets ID was invalid.');
-    } else if (err) {
-      console.log(err);
-      res.status(400).send(err.message);
-    // If you've already crawled, write rows to new URLs sheet
-    } else {
-      req.googleSheets.info = info;
-
-      if (req.pagesCrawled) {
-        setTimeout(() => {
-          processCount = 2;
-          addChangedUrls(req, res, next);
-          addBrokenLinks(req, res, next);
-        }, 0);
-      // Otherwise, delete blank URL rows
+  return new Promise((resolve, reject) => {
+    doc.getInfo((err, info) => {
+      if (!info) {
+        reject(Error('The Google Sheets ID was invalid.'));
+      } else if (err) {
+        reject(err);
+      // If you've already crawled, write rows to new URLs sheet
       } else {
-        modifyErrorRows(req, res, next);
+        req.googleSheets.info = info;
+        const updatedExpressObjects = [req, res, next];
+        resolve(updatedExpressObjects);
       }
-    }
+    });
   });
 }
 
@@ -67,147 +84,174 @@ function getWorksheets(req, res, next) {
 // to rows without statuses
 function modifyErrorRows(req, res, next) {
   const existingUrlSheet = req.googleSheets.info.worksheets[1];
+  const promiseArray = [];
 
-  existingUrlSheet.getRows((err, rows) => {
-    if (err) {
-      console.log(err);
-      res.send(err.message);
-    } else {
-      processCount++;
+  return new Promise((resolve, reject) => {
+    existingUrlSheet.getRows((err, rows) => {
+      if (err) {
+        reject(err);
+      } else {
+        for (let i = rows.length - 1; i > 0; i--) {
+          let thisRow = rows[i];
 
-      for (let i = rows.length - 1; i > 0; i--) {
-        let thisRow = rows[i];
+          // resetTimer(thisRow, i);
+          if (i % 500 === 0) {
+            const timeout = true;
+            const index = i;
 
-        // resetTimer(thisRow, i);
-        if (i % 500 === 0) {
-          processCount++;
-          const timeout = true;
-
-          setTimeout(checkRow(thisRow, timeout), 0);
-        } else {
-          checkRow(thisRow);
+            setTimeout(() => {
+              promiseArray[index] = checkRow(thisRow, timeout);
+            }, 0);
+          } else {
+            promiseArray[i] = checkRow(thisRow);
+          }
         }
-      }
 
-      checkProcessCount(req, res, next, moveNewUrls);
-    }
+        Promise.all(promiseArray)
+          .then(results => {
+            resolve(req, res, next);
+          })
+          .catch(err => {
+            console.log(err);
+          });
+      }
+    });
   });
 
-  function checkRow(row, timeout) {
+  function checkRow(row) {
     if (!row.url) {
-      modifyRow(row.del, timeout);
-    } else if (!row.status) {
-      row.status = 200;
-      modifyRow(row.save, timeout);
-    } else if (timeout) {
-      checkProcessCount(req, res, next, moveNewUrls);
+      return modifyRow(row.del);
     }
+    if (!row.status) {
+      row.status = 200;
+      return modifyRow(row.save);
+    }
+    return 'all done';
   }
 
-  function modifyRow(func, timeout) {
-    if (!timeout) {
-      processCount++;
-    }
-
-    func(err => {
-      if (err) {
-        console.log(err);
-        res.send(err.message);
-      } else {
-        checkProcessCount(req, res, next, moveNewUrls);
-      }
+  function modifyRow(func) {
+    return new Promise((resolve, reject) => {
+      func(err => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve('all done');
+        }
+      });
     });
   }
 }
 
 // Copy URLs from 'New/Modified URLs' over to 'Existing URLs'
-function moveNewUrls(req, res, next) {
-  const {info} = req.googleSheets;
+function moveNewUrls(info) {
   const existingUrlSheet = info.worksheets[1];
   const newUrlSheet = info.worksheets[2];
 
-  newUrlSheet.getCells({
-    'min-row': 2,
-    'min-col': 1,
-    'max-col': COL_COUNT,
-    'return-empty': false
-  }, (err, newCells) => {
-    if (err) {
-      console.log(err);
-      res.send(err.message);
-    }
+  return new Promise((resolve, reject) => {
+    newUrlSheet.getCells({
+      'min-row': 2,
+      'min-col': 1,
+      'max-col': COL_COUNT,
+      'return-empty': false
+    }, (err, newCells) => {
+      if (err) {
+        reject(err);
+      }
 
-    cleanUpNewSheet(newUrlSheet);
-    updateExistingSheet(existingUrlSheet, newCells);
+      const clearOptions = {
+        sheet: newUrlSheet,
+        headers: ['url', 'status']
+      };
+
+      const clearPromise = clearSheet(clearOptions)
+        .then(msg => {
+          console.log(msg);
+        })
+        .catch(err => {
+          console.log(err);
+        });
+      const updatePromise = updateExistingSheet(existingUrlSheet, newCells)
+        .then(options => {
+          return updateSheetCells(options);
+        })
+        .then(sheet => {
+          return getUrls(sheet);
+        })
+        .catch(err => {
+          console.log(err);
+        });
+
+      Promise.all([clearPromise, updatePromise])
+        .then(results => {
+          console.log(results[0]);
+          resolve(results[1]);
+        });
+    });
   });
 
-  function cleanUpNewSheet(sheet) {
-    const options = {
-      sheet,
-      headers: ['url', 'status']
-    };
-    clearSheet(req, res, next, options);
-  }
-
   function updateExistingSheet(existingUrlSheet, newCells) {
-    existingUrlSheet.getRows({offset: 1, orderby: 'col2'},
-      (err, rows) => {
-        if (err) {
-          console.log(err);
-          res.send(err.message);
+    return new Promise((resolve, reject) => {
+      existingUrlSheet.getRows({offset: 1, orderby: 'col2'},
+        (err, rows) => {
+          if (err) {
+            reject(err);
+          } else {
+            const existingRowCount = rows.length;
+            const minRow = existingRowCount + 1;
+            const newRowCount = newCells.length / COL_COUNT;
+            const revisedRowCount = Math.max(
+              existingRowCount + newRowCount,
+              existingUrlSheet.rowCount
+            );
+            const revisedColCount =
+              Math.max(COL_COUNT, existingUrlSheet.colCount);
+            const options = {
+              sheet: existingUrlSheet,
+              rowCount: revisedRowCount,
+              colCount: revisedColCount,
+              minRow,
+              newCells,
+              isCellToCell: true,
+              callback: getUrls
+            };
+
+            resolve(options);
+            // updateSheetCells(req, res, next, options);
+          }
         }
-
-        const existingRowCount = rows.length;
-        const minRow = existingRowCount + 1;
-        const newRowCount = newCells.length / COL_COUNT;
-        const revisedRowCount =
-          Math.max(existingRowCount + newRowCount, existingUrlSheet.rowCount);
-        const revisedColCount = Math.max(COL_COUNT, existingUrlSheet.colCount);
-        const options = {
-          sheet: existingUrlSheet,
-          rowCount: revisedRowCount,
-          colCount: revisedColCount,
-          minRow,
-          newCells,
-          isCellToCell: true,
-          callback: getUrls
-        };
-
-        updateSheetCells(req, res, next, options);
-      }
-    );
+      );
+    });
   }
 }
 
 // Collect array of URLs that you want to check
 // (found in 'Existing URLs' sheet)
-function getUrls(req, res, next) {
-  const urlSheet = req.googleSheets.info.worksheets[1];
+function getUrls(urlSheet) {
+  return new Promise((resolve, reject) => {
+    urlSheet.getRows(
+      {offset: 1, orderby: 'col2'},
+      (err, rows) => {
+        if (err) {
+          reject(err);
+        }
 
-  urlSheet.getRows(
-    {offset: 1, orderby: 'col2'},
-    (err, rows) => {
-      if (err) {
-        console.log(err);
-        res.send(err.message);
+        // Push all rows of 'Existing URLs' into 'pagesToCrawl' for use
+        // by crawler.js
+        const pagesToCrawl = rows
+          .filter(row => {
+            return row.url && row;
+          })
+          .map(function(row) {
+            return {
+              url: row.url.replace(/\/$/, ''),
+              status: parseFloat(row.status)
+            };
+          });
+
+        return pagesToCrawl;
       }
-
-      // Push all rows of 'Existing URLs' into 'pagesToCrawl' for use
-      // by crawler.js
-      req.pagesToCrawl = rows
-        .filter(row => {
-          return row.url && row;
-        })
-        .map(function(row) {
-          return {
-            url: row.url.replace(/\/$/, ''),
-            status: parseFloat(row.status)
-          };
-        });
-
-      next();
-    }
-  );
+    );
+  });
 }
 
 // After crawling, add 'pagesCrawled' info to new URLs sheet
@@ -215,25 +259,28 @@ function getUrls(req, res, next) {
 function addChangedUrls(req, res, next) {
   const {pagesCrawled, googleSheets} = req;
 
-  if (pagesCrawled && pagesCrawled.length) {
-    req.notification = true;
-    const newUrlSheet = googleSheets.info.worksheets[2];
-    const rowCount = Math.max(pagesCrawled.length + 1, newUrlSheet.rowCount);
-    const colCount = Math.max(COL_COUNT, newUrlSheet.colCount);
-    const options = {
-      sheet: newUrlSheet,
-      rowCount,
-      colCount,
-      minRow: 2,
-      newCells: pagesCrawled,
-      isCellToCell: false,
-      callback: getEmails
-    };
+  return new Promise((resolve, reject) => {
+    if (pagesCrawled && pagesCrawled.length) {
+      req.notification = true;
+      const newUrlSheet = googleSheets.info.worksheets[2];
+      const rowCount = Math.max(pagesCrawled.length + 1, newUrlSheet.rowCount);
+      const colCount = Math.max(COL_COUNT, newUrlSheet.colCount);
+      const options = {
+        sheet: newUrlSheet,
+        rowCount,
+        colCount,
+        minRow: 2,
+        newCells: pagesCrawled,
+        isCellToCell: false,
+        callback: getEmails
+      };
 
-    updateSheetCells(req, res, next, options);
-  } else {
-    checkProcessCount(req, res, next, getEmails);
-  }
+      return updateSheetCells(req, res, next, options);
+    }
+    // else {
+    //   checkProcessCount(req, res, next, getEmails);
+    // }
+  });
 }
 
 // Add broken links info to 'Broken Links' sheet
@@ -268,8 +315,6 @@ function addBrokenLinks(req, res, next) {
       };
 
       updateSheetCells(req, res, next, options);
-    } else {
-      checkProcessCount(req, res, next, getEmails);
     }
   }
 }
@@ -311,104 +356,118 @@ function getEmails(req, res, next) {
   }
 }
 
-function updateSheetCells(req, res, next, options) {
+function updateSheetCells(options) {
   const {
     sheet,
     rowCount,
     colCount,
     minRow,
     newCells,
-    isCellToCell,
-    callback
+    isCellToCell
   } = options;
 
-  sheet.resize({
-    'rowCount': rowCount,
-    'colCount': colCount
-  }, err => {
-    if (err) {
-      console.log(err);
-      res.send(err.message);
-    }
-
-    sheet.getCells({
-      'min-row': minRow,
-      'min-col': 1,
-      'max-col': COL_COUNT,
-      'return-empty': true
-    }, (err, existingCells) => {
+  return new Promise((resolve, reject) => {
+    sheet.resize({
+      'rowCount': rowCount,
+      'colCount': colCount
+    }, err => {
       if (err) {
-        console.log(err);
-        res.send(err.message);
+        reject(err);
       }
 
-      const properties = sheet.id === 4 ?
-        ['page_url', 'link_url'] :
-        ['url', 'status'];
+      sheet.getCells({
+        'min-row': minRow,
+        'min-col': 1,
+        'max-col': COL_COUNT,
+        'return-empty': true
+      }, (err, existingCells) => {
+        if (err) {
+          reject(err);
+        }
 
-      for (let i = 0; i < existingCells.length; i++) {
-        const thisExistingCell = existingCells[i];
-        const thisNewCell = isCellToCell ?
-          newCells[i] :
-          newCells[Math.floor(i / COL_COUNT)];
+        const properties = sheet.id === 4 ?
+          ['page_url', 'link_url'] :
+          ['url', 'status'];
 
-        if (thisNewCell && thisExistingCell) {
-          if (isCellToCell) {
-            thisExistingCell.value = thisNewCell.value;
-          } else {
-            const propertyIndex = thisExistingCell.col - 1;
-            const value = thisNewCell[properties[propertyIndex]];
-            thisExistingCell.value = value;
+        for (let i = 0; i < existingCells.length; i++) {
+          const thisExistingCell = existingCells[i];
+          const thisNewCell = isCellToCell ?
+            newCells[i] :
+            newCells[Math.floor(i / COL_COUNT)];
+
+          if (thisNewCell && thisExistingCell) {
+            if (isCellToCell) {
+              thisExistingCell.value = thisNewCell.value;
+            } else {
+              const propertyIndex = thisExistingCell.col - 1;
+              const value = thisNewCell[properties[propertyIndex]];
+              thisExistingCell.value = value;
+            }
           }
         }
-      }
 
-      sheet.bulkUpdateCells(existingCells, err => {
-        if (err) {
-          console.log(err);
-          res.send(err.message);
-        }
+        sheet.bulkUpdateCells(existingCells, err => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(sheet);
+          }
 
-        checkProcessCount(req, res, next, callback);
+          // checkProcessCount(req, res, next, callback);
+        });
       });
     });
   });
 }
 
-function clearSheet(req, res, next, options) {
-  const {sheet, headers, callback} = options;
+function clearSheet(options) {
+  const {sheet, headers} = options;
 
-  sheet.clear(err => {
-    if (err) {
-      console.log(err);
-      res.send(err.message);
-    }
+  return new Promise((resolve, reject) => {
+    gsClear(sheet)
+      .then(() => {
+        return gsSetHeaderRow(headers);
+      })
+      .catch(err => {
+        console.log(err);
+      });
+  });
 
-    // Clear removes everything, so put back column labels
-    sheet.setHeaderRow(
+  function gsClear(sheet) {
+    return new Promise((resolve, reject) => {
+      sheet.clear(err => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
+  function gsSetHeaderRow(headers) {
+    return new Promise((resolve, reject) => {
+      sheet.setHeaderRow(
       headers,
       err => {
         if (err) {
-          console.log(err);
-          res.send(err.message);
+          reject(err);
+        } else {
+          resolve('clear done');
         }
-
-        if (callback) {
-          callback(req, res, next);
-        }
-      }
-    );
-  });
-}
-
-function checkProcessCount(req, res, next, callback) {
-  if (processCount > 0) {
-    processCount--;
-  }
-
-  if (processCount === 0) {
-    callback(req, res, next);
+      });
+    });
   }
 }
+
+// function checkProcessCount(req, res, next, callback) {
+//   if (processCount > 0) {
+//     processCount--;
+//   }
+//
+//   if (processCount === 0) {
+//     callback(req, res, next);
+//   }
+// }
 
 export default getSpreadsheet;
