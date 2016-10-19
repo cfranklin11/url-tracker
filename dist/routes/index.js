@@ -34,9 +34,7 @@ router.get('/', function (req, res, next) {
   });
 });
 
-router.get('/test', // Verifies JWT
-// Crawls website(s)
-_sheetsHelper2.default, function (req, res, next) {
+router.get('/test', _sheetsHelper2.default, function (req, res, next) {
   res.redirect('/');
 });
 
@@ -52,8 +50,10 @@ function (req, res, next) {
 
 // With success above, proceed to crawl website(s), record info
 // in Google Sheets, then send e-mail notification if there's new info
-router.post('/api/crawl', _jwtHelper.checkToken, _sheetsHelper2.default, // Reads existing info from Google Sheets
-_crawler2.default, _sheetsHelper2.default, // Writes new info to Google Sheets
+router.post('/api/crawl', _jwtHelper.checkToken, // Verifies JWT
+// getDoc, // Reads existing info from Google Sheets
+_crawler2.default, // Crawls website(s)
+// getDoc, // Writes new info to Google Sheets
 _postmarkHelper2.default, // Sends e-mail notification
 function (req, res, next) {
   res.redirect('/');
