@@ -12,10 +12,6 @@ router.get('/', function(req, res, next) {
   });
 });
 
-// router.get('/test', prepareToCrawl, function(req, res, next) {
-//   res.redirect('/');
-// });
-
 // Start by creating a Javascript Web Tokein (JWT) and sending it to client
 router.post('/api/token',
   createToken, // Creates JWT

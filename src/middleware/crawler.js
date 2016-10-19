@@ -79,7 +79,8 @@ function requestPage(req, res, next, pageUrl, currentIndex) {
 
   if (pageUrl && !wasVisited) {
     request(pageUrl, (error, response, body) => {
-      console.log(currentIndex, new Date(), pageUrl);
+      const date = new Date();
+      console.log(currentIndex, date.toTimeString(), pageUrl);
 
       if (error) {
         console.log(pageUrl);

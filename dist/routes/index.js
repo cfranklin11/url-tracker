@@ -14,8 +14,6 @@ var _crawler2 = _interopRequireDefault(_crawler);
 
 var _sheetsHelper = require('../middleware/sheets-helper.js');
 
-var _sheetsHelper2 = _interopRequireDefault(_sheetsHelper);
-
 var _jwtHelper = require('../middleware/jwt-helper.js');
 
 var _postmarkHelper = require('../middleware/postmark-helper.js');
@@ -34,10 +32,6 @@ router.get('/', function (req, res, next) {
   });
 });
 
-router.get('/test', _sheetsHelper2.default, function (req, res, next) {
-  res.redirect('/');
-});
-
 // Start by creating a Javascript Web Tokein (JWT) and sending it to client
 router.post('/api/token', _jwtHelper.createToken, // Creates JWT
 function (req, res, next) {
@@ -51,9 +45,9 @@ function (req, res, next) {
 // With success above, proceed to crawl website(s), record info
 // in Google Sheets, then send e-mail notification if there's new info
 router.post('/api/crawl', _jwtHelper.checkToken, // Verifies JWT
-// getDoc, // Reads existing info from Google Sheets
+_sheetsHelper.prepareToCrawl, // Reads existing info from Google Sheets
 _crawler2.default, // Crawls website(s)
-// getDoc, // Writes new info to Google Sheets
+_sheetsHelper.processPageData, // Writes new info to Google Sheets
 _postmarkHelper2.default, // Sends e-mail notification
 function (req, res, next) {
   res.redirect('/');
