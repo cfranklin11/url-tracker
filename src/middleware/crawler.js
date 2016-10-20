@@ -1,8 +1,10 @@
 /* eslint no-loop-func: 0 */
+/* eslint no-nested-ternary: 0 */
 
 import request from 'request';
 import cheerio from 'cheerio';
 import urlParse from 'url-parse';
+import sizeof from 'object-sizeof';
 // import heapdump from 'heapdump';
 
 // Arrays for keeping track of page info as the crawler iterates through
@@ -13,6 +15,7 @@ let errorPages = [];
 let brokenLinks = [];
 let loopCount = 0;
 let requestCount = 0;
+let bandwidthUsed = 0;
 // RegExps to skip unimportant pages (PAGE_REG_EXP) and not to crawl non-html
 // pages for links (TYPE_REG_EXP), because that results in errors
 const PAGE_REG_EXP = /permalink|visited-locations|transcripts|news/i;
@@ -60,12 +63,14 @@ function continueLoop(req, res, next) {
           requestPage(req, res, next, thisPageToVisit, currentCount);
         }
       } else {
+        console.log(bandwidthUsed);
         req.pagesCrawled = changedPages;
         req.brokenLinks = brokenLinks;
         next();
       }
     }
   } else {
+    console.log(bandwidthUsed);
     req.pagesCrawled = changedPages;
     req.brokenLinks = brokenLinks;
     next();
@@ -79,6 +84,10 @@ function requestPage(req, res, next, pageUrl, currentIndex) {
 
   if (pageUrl && !wasVisited) {
     request(pageUrl, (error, response, body) => {
+      const headersMem = sizeof(response.headers);
+      const bodyMem = sizeof(body);
+      bandwidthUsed += headersMem + bodyMem;
+
       const date = new Date();
       console.log(currentIndex, date.toTimeString(), pageUrl);
 
@@ -88,7 +97,18 @@ function requestPage(req, res, next, pageUrl, currentIndex) {
         changedPages[changedPages.length] = {url: pageUrl, status: 404};
         loopBack(req, res, next);
       } else {
-        const {statusCode} = response;
+        const redirects = response.request._redirect.redirects;
+        const redirectStatuses = redirects.map(redirect => {
+          return redirect.statusCode;
+        });
+        const redirectCode = redirectStatuses.length > 1 ?
+          redirectStatuses.join(`, `) :
+          redirectStatuses.length ?
+            redirectStatuses[0] :
+            ``;
+        const statusCode = redirectCode ?
+          redirectCode :
+          response.statusCode;
         const pageObj = {
           url: pageUrl,
           status: statusCode
@@ -174,7 +194,9 @@ function loopBack(req, res, next) {
   requestCount--;
 
   if (requestCount === 0) {
-    console.log(`toCrawl: ${req.pagesToCrawl.length}, changed: ${changedPages.length}, toVisit: ${pagesToVisit.length}`);
+    console.log(`toCrawl: ${req.pagesToCrawl.length}`,
+      `changed: ${changedPages.length}`,
+      `toVisit: ${pagesToVisit.length}`);
   }
 
   if (requestCount === 0) {

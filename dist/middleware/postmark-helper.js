@@ -38,14 +38,17 @@ function sendNotification(req, res, next) {
         next();
       }
 
-      console.log('E-mail sent to: ');
+      var date = new Date();
+      console.log(date.toTimeString(), 'E-mail sent to: ');
       console.log(to);
       next();
     });
   } else {
-    console.log('No e-mail addresses');
+    var date = new Date();
+    console.log(date.toTimeString(), 'No e-mail addresses');
     next();
   }
 }
 
 exports.default = sendNotification;
+//# sourceMappingURL=postmark-helper.js.map

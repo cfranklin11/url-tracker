@@ -38,3 +38,4 @@ var configAuth = {
 };
 
 exports.default = configAuth;
+//# sourceMappingURL=auth.js.map

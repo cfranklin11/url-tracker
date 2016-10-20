@@ -15,9 +15,6 @@ var _auth2 = _interopRequireDefault(_auth);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-/* eslint no-trailing-spaces: 0 */
-/* eslint no-unused-vars: 0 */
-
 var COL_COUNT = 2;
 // import heapdump from 'heapdump';
 
@@ -28,23 +25,20 @@ var BROKEN_LINKS_INDEX = 2;
 var BROKEN_LINKS_SHEET_ID = 4;
 
 function prepareToCrawl(req, res, next) {
-  console.log('getDoc');
+  var date = new Date();
+  console.log('Start', date.toTimeString());
+
   getDoc(req).then(function (doc) {
-    console.log('getWorksheets');
     return getWorksheets(doc);
   }).then(function (info) {
-    console.log('getSheetRows');
     req.googleSheets = { info: info };
     var existingUrlsSheet = info.worksheets[EXISTING_URL_INDEX];
     return getSheetRows(existingUrlsSheet);
   }).then(function (rows) {
-    console.log('checkExistingRows');
     return checkExistingRows(req.googleSheets.info, rows);
   }).then(function (info) {
-    console.log('moveNewUrls');
     return moveNewUrls(info);
   }).then(function (info) {
-    console.log('getUrls');
     return getUrls(info, EXISTING_URL_INDEX);
   }).then(function (urlsArray) {
     req.pagesToCrawl = urlsArray;
@@ -56,6 +50,9 @@ function prepareToCrawl(req, res, next) {
 }
 
 function processPageData(req, res, next) {
+  var date = new Date();
+  console.log('Process Data', date.toTimeString());
+
   var pagesCrawled = req.pagesCrawled;
   var info = req.googleSheets.info;
   var brokenLinks = req.brokenLinks;
@@ -65,7 +62,7 @@ function processPageData(req, res, next) {
 
   if (pagesCrawled && pagesCrawled.length) {
     req.notification = true;
-    var newUrlSheet = info.worksheets[2];
+    var newUrlSheet = info.worksheets[NEW_URL_INDEX];
     var rowCount = Math.max(pagesCrawled.length + 1, newUrlSheet.rowCount);
     var colCount = Math.max(COL_COUNT, newUrlSheet.colCount);
     var newOptions = {
@@ -77,12 +74,10 @@ function processPageData(req, res, next) {
       isCellToCell: false
     };
 
-    console.log('updateSheetCells');
     updatePromise = updateSheetCells(newOptions).then(function (sheet) {
       return 'new urls added';
     }).catch(function (err) {
-      console.log(err);
-      res.send(err.message);
+      throw err;
     });
   }
 
@@ -105,21 +100,15 @@ function processPageData(req, res, next) {
         isCellToCell: false
       };
 
-      console.log('clearSheet');
       linksPromise = clearSheet(clearLinksOptions).then(function (msg) {
-        console.log('updateSheetCells');
         return updateSheetCells(addLinksOptions);
-      }).then(function (sheet) {
-        return 'links added';
-      }).catch(function (err) {
-        console.log(err);
-        res.send(err.message);
+      }).then(function (sheet) {}).catch(function (err) {
+        throw err;
       });
     })();
   }
 
   Promise.all([updatePromise, linksPromise]).then(function (results) {
-    console.log('getEmails');
     getEmails(req, res, next);
   }).catch(function (err) {
     console.log(err);
@@ -153,8 +142,6 @@ function getDoc(req) {
 
 // Get correct sheet, depending on whether your reading or writing
 function getWorksheets(doc) {
-  // const {doc} = req.googleSheets;
-
   return new Promise(function (resolve, reject) {
     doc.getInfo(function (err, info) {
       if (!info) {
@@ -163,8 +150,6 @@ function getWorksheets(doc) {
         reject(err);
         // If you've already crawled, write rows to new URLs sheet
       } else {
-        // req.googleSheets.info = info;
-        // const updatedExpressObjects = [req, res, next];
         resolve(info);
       }
     });
@@ -174,7 +159,6 @@ function getWorksheets(doc) {
 // Function for deleting rows that are missing URLs and adding status 200
 // to rows without statuses
 function checkExistingRows(info, rows) {
-  var existingUrlSheet = info.worksheets[1];
   var promiseArray = [];
 
   for (var i = rows.length - 1; i > 0; i--) {
@@ -187,7 +171,7 @@ function checkExistingRows(info, rows) {
       promiseArray[index] = timeout(thisRow).then(function (row) {
         return checkRow(row);
       }).catch(function (err) {
-        console.log(err);
+        throw err;
       });
     } else {
       promiseArray[i] = checkRow(thisRow);
@@ -199,7 +183,7 @@ function checkExistingRows(info, rows) {
       resolve(info);
     });
   }).catch(function (err) {
-    console.log(err);
+    throw err;
   });
 
   function timeout(row) {
@@ -238,7 +222,6 @@ function checkExistingRows(info, rows) {
 
 // Copy URLs from 'New/Modified URLs' over to 'Existing URLs'
 function moveNewUrls(info) {
-  var existingUrlSheet = info.worksheets[EXISTING_URL_INDEX];
   var newUrlSheet = info.worksheets[NEW_URL_INDEX];
 
   return new Promise(function (resolve, reject) {
@@ -256,15 +239,12 @@ function moveNewUrls(info) {
         sheet: newUrlSheet,
         headers: ['url', 'status']
       };
-      console.log('clearSheet');
       var clearPromise = clearSheet(clearOptions).then(function (msg) {
-        console.log(msg);
         return msg;
       }).catch(function (err) {
-        console.log(err);
+        throw err;
       });
       var existingUrlsSheet = info.worksheets[EXISTING_URL_INDEX];
-      console.log('existingUrlsSheet');
       var updatePromise = getSheetRows(existingUrlsSheet).then(function (rows) {
         var existingUrlSheet = info.worksheets[EXISTING_URL_INDEX];
         var newRowCount = newCells.length / COL_COUNT;
@@ -280,10 +260,9 @@ function moveNewUrls(info) {
           newCells: newCells,
           isCellToCell: true
         };
-        console.log(updateSheetCells);
+
         return updateSheetCells(options);
       }).then(function (sheet) {
-        console.log('sheet');
         return sheet;
       }).catch(function (err) {
         throw err;
@@ -304,17 +283,16 @@ function getEmails(req, res, next) {
   var info = req.googleSheets.info;
   var notification = req.notification;
 
-  var infoSheet = info.worksheets[INFO_SHEET_INDEX];
-
   // heapdump.writeSnapshot((err, filename) => {
   //   if (err) console.log(err);
   //   console.log('dump written to', filename);
   // });
 
   // Only send an e-mail if there are new URLs or broken links
+
   if (notification) {
-    var _infoSheet = info.worksheets[INFO_SHEET_INDEX];
-    getSheetRows(_infoSheet).then(function (rows) {
+    var infoSheet = info.worksheets[INFO_SHEET_INDEX];
+    getSheetRows(infoSheet).then(function (rows) {
       // **** NOTE: 'getRows' removes '_' from column names ****
       var emailRow = rows[0].emailrecipients;
 
@@ -329,7 +307,8 @@ function getEmails(req, res, next) {
       res.send(err.message);
     });
   } else {
-    console.log('No new info');
+    var date = new Date();
+    console.log(date.toTimeString(), 'No new info');
     next();
   }
 }
@@ -448,3 +427,4 @@ function updateSheetCells(options) {
 
 exports.prepareToCrawl = prepareToCrawl;
 exports.processPageData = processPageData;
+//# sourceMappingURL=sheets-helper.js.map

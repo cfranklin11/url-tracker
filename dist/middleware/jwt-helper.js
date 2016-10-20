@@ -47,3 +47,4 @@ function checkToken(req, res, next) {
 
 exports.createToken = createToken;
 exports.checkToken = checkToken;
+//# sourceMappingURL=jwt-helper.js.map

@@ -16,14 +16,20 @@ var _urlParse = require('url-parse');
 
 var _urlParse2 = _interopRequireDefault(_urlParse);
 
+var _objectSizeof = require('object-sizeof');
+
+var _objectSizeof2 = _interopRequireDefault(_objectSizeof);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 // import heapdump from 'heapdump';
 
 // Arrays for keeping track of page info as the crawler iterates through
 // pages
-var pagesToVisit = []; /* eslint no-loop-func: 0 */
+/* eslint no-loop-func: 0 */
+console.log(_objectSizeof({stuff: 'more stuff'}));
 
+var pagesToVisit = [];
 var changedPages = [];
 var errorPages = [];
 var brokenLinks = [];
@@ -36,6 +42,7 @@ var TYPE_REG_EXP = /\.zip|\.doc|\.ppt|\.csv|\.xls|\.jpg|\.ash|\.png|\.aspx/i;
 
 // Starts the process by building the necessary page arrays
 function checkUrls(req, res, next) {
+  console.log('checkUrls');
   var pagesToCrawl = req.pagesToCrawl;
 
   // Loop through existing URLs pulled from Google Sheets,
@@ -102,7 +109,11 @@ function requestPage(req, res, next, pageUrl, currentIndex) {
 
   if (pageUrl && !wasVisited) {
     (0, _request2.default)(pageUrl, function (error, response, body) {
-      console.log(currentIndex, new Date(), pageUrl);
+      console.log(response.request._redirect.redirects);
+      console.log(_objectSizeof(response.headers));
+      console.log(_objectSizeof(body));
+      var date = new Date();
+      console.log(currentIndex, date.toTimeString(), pageUrl);
 
       if (error) {
         console.log(pageUrl);
@@ -198,7 +209,7 @@ function loopBack(req, res, next) {
   requestCount--;
 
   if (requestCount === 0) {
-    console.log('toCrawl: ' + req.pagesToCrawl.length + ', changed: ' + changedPages.length + ', toVisit: ' + pagesToVisit.length);
+    console.log('toCrawl: ' + req.pagesToCrawl.length, 'changed: ' + changedPages.length, 'toVisit: ' + pagesToVisit.length);
   }
 
   if (requestCount === 0) {
@@ -213,3 +224,4 @@ function loopBack(req, res, next) {
 }
 
 exports.default = checkUrls;
+//# sourceMappingURL=crawler.js.map

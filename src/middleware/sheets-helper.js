@@ -1,6 +1,3 @@
-/* eslint no-trailing-spaces: 0 */
-/* eslint no-unused-vars: 0 */
-
 import GoogleSpreadsheet from 'google-spreadsheet';
 // import heapdump from 'heapdump';
 import configAuth from '../config/auth.js';
@@ -158,7 +155,6 @@ function getWorksheets(doc) {
 // Function for deleting rows that are missing URLs and adding status 200
 // to rows without statuses
 function checkExistingRows(info, rows) {
-  const existingUrlSheet = info.worksheets[EXISTING_URL_INDEX];
   const promiseArray = [];
 
   for (let i = rows.length - 1; i > 0; i--) {
@@ -228,7 +224,6 @@ function checkExistingRows(info, rows) {
 
 // Copy URLs from 'New/Modified URLs' over to 'Existing URLs'
 function moveNewUrls(info) {
-  const existingUrlSheet = info.worksheets[EXISTING_URL_INDEX];
   const newUrlSheet = info.worksheets[NEW_URL_INDEX];
 
   return new Promise((resolve, reject) => {
@@ -301,7 +296,6 @@ function moveNewUrls(info) {
 // a notification e-mail
 function getEmails(req, res, next) {
   const {googleSheets: {info}, notification} = req;
-  const infoSheet = info.worksheets[INFO_SHEET_INDEX];
 
   // heapdump.writeSnapshot((err, filename) => {
   //   if (err) console.log(err);
