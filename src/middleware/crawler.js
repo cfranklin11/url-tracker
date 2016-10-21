@@ -63,17 +63,11 @@ function continueLoop(req, res, next) {
           requestPage(req, res, next, thisPageToVisit, currentCount);
         }
       } else {
-        console.log(bandwidthUsed);
-        req.pagesCrawled = changedPages;
-        req.brokenLinks = brokenLinks;
-        next();
+        finishLoop(req, res, next);
       }
     }
   } else {
-    console.log(bandwidthUsed);
-    req.pagesCrawled = changedPages;
-    req.brokenLinks = brokenLinks;
-    next();
+    finishLoop(req, res, next);
   }
 }
 
@@ -97,21 +91,29 @@ function requestPage(req, res, next, pageUrl, currentIndex) {
         changedPages[changedPages.length] = {url: pageUrl, status: 404};
         loopBack(req, res, next);
       } else {
-        const redirects = response.request._redirect.redirects;
-        const redirectStatuses = redirects.map(redirect => {
-          return redirect.statusCode;
-        });
-        const redirectCode = redirectStatuses.length > 1 ?
-          redirectStatuses.join(`, `) :
-          redirectStatuses.length ?
-            redirectStatuses[0] :
-            ``;
-        const statusCode = redirectCode ?
-          redirectCode :
+        const {redirects} = response.request._redirect;
+
+        if (redirects.length) {
+          const finalRedirect = redirects[redirects.length];
+          const finalDestination = finalRedirect &&
+            {url: finalRedirect.url, status: finalRedirect.statusCode};
+          const destIsInToVisit = finalDestination &&
+            pagesToVisit.findIndex(page => {
+              return finalDestination.url === page.url;
+            }) !== -1;
+
+          if (finalDestination && !destIsInToVisit) {
+            pagesToVisit[pagesToVisit.length] = finalDestination;
+          }
+        }
+
+        const redirectStatus = redirects[0] && redirects[0].statusCode;
+        const status = redirectStatus ?
+          redirectStatus :
           response.statusCode;
         const pageObj = {
           url: pageUrl,
-          status: statusCode
+          status
         };
         // If the page doesn't exist on Current URLs sheet,
         // add it to 'changedPages'
@@ -126,7 +128,7 @@ function requestPage(req, res, next, pageUrl, currentIndex) {
 
         // If the page is working & the body is html,
         // collect links for other pages
-        if (parseFloat(statusCode) === 200 && /<?\/?html>/.test(body)) {
+        if (!/40\d/.test(status) && /<?\/?html>/.test(body)) {
           collectLinks(req, res, next, pageUrl, body);
         } else {
           loopBack(req, res, next);
@@ -203,11 +205,19 @@ function loopBack(req, res, next) {
     if (req.pagesToCrawl.length + changedPages.length < pagesToVisit.length) {
       continueLoop(req, res, next);
     } else {
-      req.pagesCrawled = changedPages;
-      req.brokenLinks = brokenLinks;
-      next();
+      finishLoop(req, res, next);
     }
   }
+}
+
+function finishLoop(req, res, next) {
+  const revisedBandwidth = bandwidthUsed >= 1000000 ?
+    Math.round(bandwidthUsed / 10000) / 100 :
+    Math.round(bandwidthUsed / 10) / 100;
+  console.log(revisedBandwidth);
+  req.pagesCrawled = changedPages;
+  req.brokenLinks = brokenLinks;
+  next();
 }
 
 export default checkUrls;

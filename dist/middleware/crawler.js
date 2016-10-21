@@ -27,7 +27,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 // Arrays for keeping track of page info as the crawler iterates through
 // pages
 /* eslint no-loop-func: 0 */
-console.log(_objectSizeof({stuff: 'more stuff'}));
+/* eslint no-nested-ternary: 0 */
 
 var pagesToVisit = [];
 var changedPages = [];
@@ -35,6 +35,7 @@ var errorPages = [];
 var brokenLinks = [];
 var loopCount = 0;
 var requestCount = 0;
+var bandwidthUsed = 0;
 // RegExps to skip unimportant pages (PAGE_REG_EXP) and not to crawl non-html
 // pages for links (TYPE_REG_EXP), because that results in errors
 var PAGE_REG_EXP = /permalink|visited-locations|transcripts|news/i;
@@ -42,7 +43,6 @@ var TYPE_REG_EXP = /\.zip|\.doc|\.ppt|\.csv|\.xls|\.jpg|\.ash|\.png|\.aspx/i;
 
 // Starts the process by building the necessary page arrays
 function checkUrls(req, res, next) {
-  console.log('checkUrls');
   var pagesToCrawl = req.pagesToCrawl;
 
   // Loop through existing URLs pulled from Google Sheets,
@@ -86,6 +86,7 @@ function continueLoop(req, res, next) {
           }
         })();
       } else {
+        console.log(bandwidthUsed);
         req.pagesCrawled = changedPages;
         req.brokenLinks = brokenLinks;
         next();
@@ -96,6 +97,7 @@ function continueLoop(req, res, next) {
       _loop();
     }
   } else {
+    console.log(bandwidthUsed);
     req.pagesCrawled = changedPages;
     req.brokenLinks = brokenLinks;
     next();
@@ -109,9 +111,10 @@ function requestPage(req, res, next, pageUrl, currentIndex) {
 
   if (pageUrl && !wasVisited) {
     (0, _request2.default)(pageUrl, function (error, response, body) {
-      console.log(response.request._redirect.redirects);
-      console.log(_objectSizeof(response.headers));
-      console.log(_objectSizeof(body));
+      var headersMem = (0, _objectSizeof2.default)(response.headers);
+      var bodyMem = (0, _objectSizeof2.default)(body);
+      bandwidthUsed += headersMem + bodyMem;
+
       var date = new Date();
       console.log(currentIndex, date.toTimeString(), pageUrl);
 
@@ -122,11 +125,28 @@ function requestPage(req, res, next, pageUrl, currentIndex) {
         loopBack(req, res, next);
       } else {
         (function () {
-          var statusCode = response.statusCode;
+          var redirects = response.request._redirect.redirects;
 
+
+          if (redirects.length) {
+            (function () {
+              var finalRedirect = redirects[redirects.length];
+              var finalDestination = finalRedirect && { url: finalRedirect.url, status: finalRedirect.statusCode };
+              var destIsInToVisit = finalDestination && pagesToVisit.findIndex(function (page) {
+                return finalDestination.url === page.url;
+              }) !== -1;
+
+              if (finalDestination && !destIsInToVisit) {
+                pagesToVisit[pagesToVisit.length] = finalDestination;
+              }
+            })();
+          }
+
+          var redirectStatus = redirects[0] && redirects[0].statusCode;
+          var status = redirectStatus ? redirectStatus : response.statusCode;
           var pageObj = {
             url: pageUrl,
-            status: statusCode
+            status: status
           };
           // If the page doesn't exist on Current URLs sheet,
           // add it to 'changedPages'
@@ -141,7 +161,7 @@ function requestPage(req, res, next, pageUrl, currentIndex) {
 
           // If the page is working & the body is html,
           // collect links for other pages
-          if (parseFloat(statusCode) === 200 && /<?\/?html>/.test(body)) {
+          if (!/40\d/.test(status) && /<?\/?html>/.test(body)) {
             collectLinks(req, res, next, pageUrl, body);
           } else {
             loopBack(req, res, next);
@@ -216,6 +236,7 @@ function loopBack(req, res, next) {
     if (req.pagesToCrawl.length + changedPages.length < pagesToVisit.length) {
       continueLoop(req, res, next);
     } else {
+      console.log(bandwidthUsed);
       req.pagesCrawled = changedPages;
       req.brokenLinks = brokenLinks;
       next();

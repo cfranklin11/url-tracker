@@ -11,6 +11,7 @@ const BROKEN_LINKS_SHEET_ID = 4;
 
 function prepareToCrawl(req, res, next) {
   const date = new Date();
+  req.runTimer = date;
   console.log('Start', date.toTimeString());
 
   getDoc(req)

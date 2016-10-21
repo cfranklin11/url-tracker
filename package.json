@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node ./dist/bin/www",
     "dev-start": "nodemon --watch dist ./dist/bin/www",
-    "dev": "npm run compile && npm dev-start",
+    "dev": "npm run compile && npm run dev-start",
     "compile": "babel --presets es2015,stage-2 -d dist/ src/ -s",
     "clean": "rm -r --cached dist/* cp src/bin dist/"
   },

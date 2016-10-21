@@ -41,13 +41,26 @@ function sendNotification(req, res, next) {
       var date = new Date();
       console.log(date.toTimeString(), 'E-mail sent to: ');
       console.log(to);
+      var runningTime = convertToTime(req.timer, date);
+      console.log('Total running time: ' + runningTime);
       next();
     });
   } else {
     var date = new Date();
     console.log(date.toTimeString(), 'No e-mail addresses');
+    var runningTime = convertToTime(req.runTimer, date);
+    console.log('Total running time: ' + runningTime);
     next();
   }
+}
+
+function convertToTime(startTime, endTime) {
+  var timeDiff = endTime - startTime;
+  var rawSecs = timeDiff / 1000;
+  var secs = Math.round(rawSecs % 60).toString();
+  var mins = Math.floor(rawSecs / 60).toString();
+
+  return mins + ':' + secs;
 }
 
 exports.default = sendNotification;
