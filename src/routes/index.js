@@ -1,6 +1,6 @@
 import express from 'express';
 const router = express.Router();
-import checkUrls from '../middleware/crawler.js';
+import crawlPages from '../middleware/crawler.js';
 import {prepareToCrawl, processPageData} from '../middleware/sheets-helper.js';
 import {createToken, checkToken} from '../middleware/jwt-helper.js';
 import sendNotification from '../middleware/postmark-helper.js';
@@ -29,7 +29,7 @@ router.post('/api/token',
 router.post('/api/crawl',
   checkToken, // Verifies JWT
   prepareToCrawl, // Reads existing info from Google Sheets
-  checkUrls, // Crawls website(s)
+  crawlPages, // Crawls website(s)
   processPageData, // Writes new info to Google Sheets
   sendNotification, // Sends e-mail notification
   function(req, res, next) {

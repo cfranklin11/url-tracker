@@ -1,5 +1,4 @@
 /* eslint no-loop-func: 0 */
-/* eslint no-nested-ternary: 0 */
 
 import request from 'request';
 import cheerio from 'cheerio';
@@ -14,7 +13,6 @@ let changedPages = [];
 let errorPages = [];
 let brokenLinks = [];
 let loopCount = 0;
-let requestCount = 0;
 let bandwidthUsed = 0;
 // RegExps to skip unimportant pages (PAGE_REG_EXP) and not to crawl non-html
 // pages for links (TYPE_REG_EXP), because that results in errors
@@ -22,7 +20,7 @@ const PAGE_REG_EXP = /permalink|visited-locations|transcripts|news/i;
 const TYPE_REG_EXP = /\.zip|\.doc|\.ppt|\.csv|\.xls|\.jpg|\.ash|\.png|\.aspx/i;
 
 // Starts the process by building the necessary page arrays
-function checkUrls(req, res, next) {
+function crawlPages(req, res, next) {
   const {pagesToCrawl} = req;
 
   // Loop through existing URLs pulled from Google Sheets,
@@ -37,111 +35,171 @@ function checkUrls(req, res, next) {
     }
   }
 
-  continueLoop(req, res, next);
+  visitPages(req, res, next);
 }
 
-function continueLoop(req, res, next) {
-  if (loopCount < pagesToVisit.length) {
-    for (loopCount; loopCount < pagesToVisit.length; loopCount++) {
-      const thisPageToVisit = pagesToVisit[loopCount];
+function visitPages(req, res, next) {
+  const promises = [];
 
-      if (thisPageToVisit) {
-        const currentCount = loopCount;
+  for (loopCount; loopCount < pagesToVisit.length; loopCount++) {
+    const thisPageToVisit = pagesToVisit[loopCount];
 
-        if (loopCount % 500 === 0) {
-          // heapdump.writeSnapshot((err, filename) => {
-          //   if (err) console.log(err);
-          //   console.log('dump written to', filename);
-          // });
+    if (thisPageToVisit) {
+      const currentCount = loopCount;
 
-          setTimeout(() => {
-            requestCount++;
-            requestPage(req, res, next, thisPageToVisit, currentCount);
-          }, 0);
-        } else {
-          requestCount++;
-          requestPage(req, res, next, thisPageToVisit, currentCount);
-        }
+      if (loopCount % 500 === 0) {
+        // heapdump.writeSnapshot((err, filename) => {
+        //   if (err) console.log(err);
+        //   console.log('dump written to', filename);
+        // });
+
+        promises[promises.length] =
+          timeout(thisPageToVisit, currentCount)
+            .then((url, index) => {
+              return requestPage(url, index, req.pagesToCrawl);
+            })
+            .then((url, body) => {
+              if (url && body) {
+                collectLinks(url, body);
+                return 'Links collected';
+              }
+
+              return 'No links';
+            })
+            .catch(err => {
+              console.log(err);
+            }
+          );
       } else {
-        finishLoop(req, res, next);
+        promises[promises.length] =
+          requestPage(thisPageToVisit, currentCount, req.pagesToCrawl)
+            .then((url, body) => {
+              if (url && body) {
+                collectLinks(url, body);
+                return 'Links collected';
+              }
+
+              return 'No links';
+            })
+            .catch(err => {
+              console.log(err);
+            }
+          );
       }
     }
-  } else {
-    finishLoop(req, res, next);
   }
+
+  Promise.all(promises)
+    .then(results => {
+      console.log(`toCrawl: ${req.pagesToCrawl.length}`,
+        `changed: ${changedPages.length}`,
+        `toVisit: ${pagesToVisit.length}`);
+
+      if (req.pagesToCrawl.length + changedPages.length < pagesToVisit.length) {
+        crawlPages(req, res, next);
+      } else {
+        const revisedBandwidth = bandwidthUsed >= 1000000 ?
+          (Math.round(bandwidthUsed / 10000) / 100).toString() + 'MB' :
+          (Math.round(bandwidthUsed / 10) / 100).toString() + 'KB';
+        console.log(revisedBandwidth);
+        req.pagesCrawled = changedPages;
+        req.brokenLinks = brokenLinks;
+
+        next();
+      }
+    })
+    .catch(err => {
+      console.log(err);
+      next();
+    });
+}
+
+function timeout(url, index) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      resolve(url, index);
+    }, 0);
+  });
 }
 
 // Makes HTTP requests
-function requestPage(req, res, next, pageUrl, currentIndex) {
+function requestPage(pageUrl, currentIndex, pagesToCrawl) {
   // Only request the page if you haven't visited it yet
   const wasVisited = pagesToVisit.indexOf(pageUrl) < currentIndex;
 
-  if (pageUrl && !wasVisited) {
-    request(pageUrl, (error, response, body) => {
-      const headersMem = sizeof(response.headers);
-      const bodyMem = sizeof(body);
-      bandwidthUsed += headersMem + bodyMem;
-
-      const date = new Date();
-      console.log(currentIndex, date.toTimeString(), pageUrl);
-
-      if (error) {
-        console.log(pageUrl);
-        console.log(error);
-        changedPages[changedPages.length] = {url: pageUrl, status: 404};
-        loopBack(req, res, next);
+  return new Promise((resolve, reject) => {
+    if (pageUrl) {
+      if (wasVisited) {
+        reject(Error('Page was already visited.'));
       } else {
-        const {redirects} = response.request._redirect;
+        request(pageUrl, (err, response, body) => {
+          const headersMem = sizeof(response.headers);
+          const bodyMem = sizeof(body);
+          bandwidthUsed += headersMem + bodyMem;
 
-        if (redirects.length) {
-          const finalRedirect = redirects[redirects.length];
-          const finalDestination = finalRedirect &&
-            {url: finalRedirect.url, status: finalRedirect.statusCode};
-          const destIsInToVisit = finalDestination &&
-            pagesToVisit.findIndex(page => {
-              return finalDestination.url === page.url;
+          const date = new Date();
+          console.log(currentIndex, date.toTimeString(), pageUrl);
+
+          if (err) {
+            changedPages[changedPages.length] = {
+              url: pageUrl,
+              status: 404
+            };
+            reject(err);
+          } else {
+            const {redirects} = response.request._redirect;
+
+            if (redirects.length) {
+              const finalRedirect = redirects[redirects.length];
+              const finalDestination = finalRedirect &&
+                {url: finalRedirect.url, status: finalRedirect.statusCode};
+              const destIsInToVisit = finalDestination &&
+                pagesToVisit.findIndex(page => {
+                  return finalDestination.url === page.url;
+                }) !== -1;
+
+              if (finalDestination && !destIsInToVisit) {
+                pagesToVisit[pagesToVisit.length] = finalDestination;
+              }
+            }
+
+            const redirectStatus = redirects[0] && redirects[0].statusCode;
+            const status = redirectStatus ?
+              redirectStatus :
+              response.statusCode;
+            const pageObj = {
+              url: pageUrl,
+              status
+            };
+            // If the page doesn't exist on Current URLs sheet,
+            // add it to 'changedPages'
+            const isInPagesToCrawl = pagesToCrawl.findIndex(page => {
+              return page.url === pageObj.url && page.status === pageObj.status;
             }) !== -1;
 
-          if (finalDestination && !destIsInToVisit) {
-            pagesToVisit[pagesToVisit.length] = finalDestination;
+            if (!isInPagesToCrawl) {
+              pageObj.isChanged = !isInPagesToCrawl;
+              changedPages[changedPages.length] = pageObj;
+            }
+
+            // If the page is working & the body is html,
+            // collect links for other pages
+            if (!/40\d/.test(status) && /<?\/?html>/.test(body)) {
+              resolve(pageUrl, body);
+            } else {
+              resolve();
+            }
           }
-        }
-
-        const redirectStatus = redirects[0] && redirects[0].statusCode;
-        const status = redirectStatus ?
-          redirectStatus :
-          response.statusCode;
-        const pageObj = {
-          url: pageUrl,
-          status
-        };
-        // If the page doesn't exist on Current URLs sheet,
-        // add it to 'changedPages'
-        const isInPagesToCrawl = req.pagesToCrawl.findIndex(page => {
-          return page.url === pageObj.url && page.status === pageObj.status;
-        }) !== -1;
-
-        if (!isInPagesToCrawl) {
-          pageObj.isChanged = !isInPagesToCrawl;
-          changedPages[changedPages.length] = pageObj;
-        }
-
-        // If the page is working & the body is html,
-        // collect links for other pages
-        if (!/40\d/.test(status) && /<?\/?html>/.test(body)) {
-          collectLinks(req, res, next, pageUrl, body);
-        } else {
-          loopBack(req, res, next);
-        }
+        });
       }
-    });
-  } else {
-    loopBack(req, res, next);
-  }
+    } else {
+      reject(Error('Page URL is undefined.'));
+    }
+  });
 }
 
 // Scrape page for internal links to add to 'pagesToVisit'
-function collectLinks(req, res, next, pageUrl, body) {
+function collectLinks(pageUrl, body) {
   const $ = cheerio.load(body);
   const urlObj = new urlParse(pageUrl);
   const domainBaseUrl = urlObj.hostname;
@@ -191,35 +249,6 @@ function collectLinks(req, res, next, pageUrl, body) {
 
   pageUrl = null;
   body = null;
-  loopBack(req, res, next);
 }
 
-function loopBack(req, res, next) {
-  requestCount--;
-
-  if (requestCount === 0) {
-    console.log(`toCrawl: ${req.pagesToCrawl.length}`,
-      `changed: ${changedPages.length}`,
-      `toVisit: ${pagesToVisit.length}`);
-  }
-
-  if (requestCount === 0) {
-    if (req.pagesToCrawl.length + changedPages.length < pagesToVisit.length) {
-      continueLoop(req, res, next);
-    } else {
-      finishLoop(req, res, next);
-    }
-  }
-}
-
-function finishLoop(req, res, next) {
-  const revisedBandwidth = bandwidthUsed >= 1000000 ?
-    (Math.round(bandwidthUsed / 10000) / 100).toString() + 'MB' :
-    (Math.round(bandwidthUsed / 10) / 100).toString() + 'KB';
-  console.log(revisedBandwidth);
-  req.pagesCrawled = changedPages;
-  req.brokenLinks = brokenLinks;
-  next();
-}
-
-export default checkUrls;
+export default crawlPages;
