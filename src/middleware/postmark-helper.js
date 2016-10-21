@@ -42,11 +42,12 @@ function sendNotification(req, res, next) {
 function convertToTime(startTime, endTime) {
   const timeDiff = endTime - startTime;
   const rawSecs = timeDiff / 1000;
-  const secs = Math.round(rawSecs % 60).toString();
+  const secs = (Math.round(rawSecs % 6) / 10).toString();
   const mins = Math.floor(rawSecs / 60).toString();
-  const revisedSecs = secs.length === 1 ? '0' + secs : secs;
+  const revisedMins = /\d\.\d/.test(mins) ? '0' + mins : mins;
+  const revisedSecs = /\d\.\d/.test(secs) ? '0' + secs : secs;
 
-  return `${mins}:${revisedSecs}`;
+  return `${revisedMins}:${revisedSecs}`;
 }
 
 export default sendNotification;

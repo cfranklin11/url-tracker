@@ -164,10 +164,12 @@ function collectLinks(req, res, next, pageUrl, body) {
       page_url: pageUrl,
       link_url: linkUrl
     };
-    const isCorrectLinkType = /^(?:\/|http)/i.test(linkRef);
+    const isCorrectLinkType = /^(?:\/|http)/i.test(revisedLinkRef);
     const isCorrectPageType =
-      !PAGE_REG_EXP.test(linkRef) && !TYPE_REG_EXP.test(linkRef);
-    const isCorrectDomain = isAbsolute ? domainRegExp.test(linkRef) : true;
+      !PAGE_REG_EXP.test(revisedLinkRef) && !TYPE_REG_EXP.test(revisedLinkRef);
+    const isCorrectDomain = isAbsolute ?
+      domainRegExp.test(revisedLinkRef) :
+      true;
     const isInError = errorPages.indexOf(linkUrl) !== -1;
     const isInBroken = brokenLinks.findIndex(link => {
       return link.page_url === pageUrl && link.link_url === linkUrl;
@@ -212,8 +214,8 @@ function loopBack(req, res, next) {
 
 function finishLoop(req, res, next) {
   const revisedBandwidth = bandwidthUsed >= 1000000 ?
-    Math.round(bandwidthUsed / 10000) / 100 :
-    Math.round(bandwidthUsed / 10) / 100;
+    (Math.round(bandwidthUsed / 10000) / 100).toString() + 'MB' :
+    (Math.round(bandwidthUsed / 10) / 100).toString() + 'KB';
   console.log(revisedBandwidth);
   req.pagesCrawled = changedPages;
   req.brokenLinks = brokenLinks;

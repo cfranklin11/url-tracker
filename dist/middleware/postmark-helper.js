@@ -57,10 +57,12 @@ function sendNotification(req, res, next) {
 function convertToTime(startTime, endTime) {
   var timeDiff = endTime - startTime;
   var rawSecs = timeDiff / 1000;
-  var secs = Math.round(rawSecs % 60).toString();
+  var secs = (Math.round(rawSecs % 6) / 10).toString();
   var mins = Math.floor(rawSecs / 60).toString();
+  var revisedMins = /\d\.\d/.test(mins) ? '0' + mins : mins;
+  var revisedSecs = /\d\.\d/.test(secs) ? '0' + secs : secs;
 
-  return mins + ':' + secs;
+  return revisedMins + ':' + revisedSecs;
 }
 
 exports.default = sendNotification;

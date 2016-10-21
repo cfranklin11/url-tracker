@@ -86,10 +86,7 @@ function continueLoop(req, res, next) {
           }
         })();
       } else {
-        console.log(bandwidthUsed);
-        req.pagesCrawled = changedPages;
-        req.brokenLinks = brokenLinks;
-        next();
+        finishLoop(req, res, next);
       }
     };
 
@@ -97,10 +94,7 @@ function continueLoop(req, res, next) {
       _loop();
     }
   } else {
-    console.log(bandwidthUsed);
-    req.pagesCrawled = changedPages;
-    req.brokenLinks = brokenLinks;
-    next();
+    finishLoop(req, res, next);
   }
 }
 
@@ -194,15 +188,20 @@ function collectLinks(req, res, next, pageUrl, body) {
       page_url: pageUrl,
       link_url: linkUrl
     };
-    var isCorrectLinkType = /^(?:\/|http)/i.test(linkRef);
-    var isCorrectPageType = !PAGE_REG_EXP.test(linkRef) && !TYPE_REG_EXP.test(linkRef);
-    var isCorrectDomain = isAbsolute ? domainRegExp.test(linkRef) : true;
+    var isCorrectLinkType = /^(?:\/|http)/i.test(revisedLinkRef);
+    var isCorrectPageType = !PAGE_REG_EXP.test(revisedLinkRef) && !TYPE_REG_EXP.test(revisedLinkRef);
+    var isCorrectDomain = isAbsolute ? domainRegExp.test(revisedLinkRef) : true;
     var isInError = errorPages.indexOf(linkUrl) !== -1;
     var isInBroken = brokenLinks.findIndex(function (link) {
       return link.page_url === pageUrl && link.link_url === linkUrl;
     }) !== -1;
     var toVisitIndex = pagesToVisit.indexOf(linkUrl);
     var isInToVisit = toVisitIndex !== -1;
+
+    if (/bspg/.test(linkRef)) {
+      console.log(linkRef, linkUrl, domainBaseUrl);
+      console.log('domain: ' + isCorrectDomain, 'inVisit: ' + isInToVisit);
+    }
 
     if (isCorrectLinkType && isCorrectPageType && isCorrectDomain) {
       // If the URL is in 'errorPages' and not 'brokenLinks',
@@ -236,12 +235,17 @@ function loopBack(req, res, next) {
     if (req.pagesToCrawl.length + changedPages.length < pagesToVisit.length) {
       continueLoop(req, res, next);
     } else {
-      console.log(bandwidthUsed);
-      req.pagesCrawled = changedPages;
-      req.brokenLinks = brokenLinks;
-      next();
+      finishLoop(req, res, next);
     }
   }
+}
+
+function finishLoop(req, res, next) {
+  var revisedBandwidth = bandwidthUsed >= 1000000 ? (Math.round(bandwidthUsed / 10000) / 100).toString() + 'MB' : (Math.round(bandwidthUsed / 10) / 100).toString() + 'KB';
+  console.log(revisedBandwidth);
+  req.pagesCrawled = changedPages;
+  req.brokenLinks = brokenLinks;
+  next();
 }
 
 exports.default = checkUrls;
