@@ -1,6 +1,6 @@
-import GoogleSpreadsheet from 'google-spreadsheet';
-// import heapdump from 'heapdump';
-import configAuth from '../config/auth.js';
+const GoogleSpreadsheet = require('google-spreadsheet');
+// const heapdump = require('heapdump');
+const configAuth = require('../config/auth.js');
 
 const COL_COUNT = 2;
 const INFO_SHEET_INDEX = 0;
@@ -223,7 +223,7 @@ function checkExistingRows(info, rows) {
   }
 }
 
-// Copy URLs from 'New/Modified URLs' over to 'Existing URLs'
+// Copy URLs = require('New/Modified URLs' over to 'Existing URLs'
 function moveNewUrls(info) {
   const newUrlSheet = info.worksheets[NEW_URL_INDEX];
 
@@ -308,7 +308,7 @@ function getEmails(req, res, next) {
     const infoSheet = info.worksheets[INFO_SHEET_INDEX];
     getSheetRows(infoSheet)
       .then(rows => {
-        // **** NOTE: 'getRows' removes '_' from column names ****
+        // **** NOTE: 'getRows' removes '_' = require(column names ****
         const emailRow = rows[0].emailrecipients;
 
         if (emailRow) {
@@ -453,4 +453,4 @@ function updateSheetCells(options) {
   });
 }
 
-export {prepareToCrawl, processPageData};
+module.exports = {prepareToCrawl, processPageData};

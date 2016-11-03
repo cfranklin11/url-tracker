@@ -1,5 +1,5 @@
-import configAuth from '../config/auth.js';
-import postmark from 'postmark';
+const configAuth = require('../config/auth.js');
+const postmark = require('postmark');
 const {postmark_key, doc_id} = configAuth;
 const pmClient = new postmark.Client(postmark_key);
 
@@ -50,4 +50,4 @@ function convertToTime(startTime, endTime) {
   return `${revisedMins}:${revisedSecs}`;
 }
 
-export default sendNotification;
+module.exports = sendNotification;

@@ -1,10 +1,10 @@
 /* eslint no-loop-func: 0 */
 
-import request from 'request';
-import cheerio from 'cheerio';
-import urlParse from 'url-parse';
-import sizeof from 'object-sizeof';
-// import heapdump from 'heapdump';
+const request = require('request');
+const cheerio = require('cheerio');
+const urlParse = require('url-parse');
+const sizeof = require('object-sizeof');
+// const heapdump = require('heapdump');
 
 // Arrays for keeping track of page info as the crawler iterates through
 // pages
@@ -23,7 +23,7 @@ const TYPE_REG_EXP = /\.zip|\.doc|\.ppt|\.csv|\.xls|\.jpg|\.ash|\.png|\.aspx/i;
 function crawlPages(req, res, next) {
   const {pagesToCrawl} = req;
 
-  // Loop through existing URLs pulled from Google Sheets,
+  // Loop through existing URLs pulled = require(Google Sheets,
   // adding them to 'pagesToVisit' and 'errorPages' arrays
   for (let i = 0; i < pagesToCrawl.length; i++) {
     const thisPage = pagesToCrawl[i];
@@ -205,7 +205,7 @@ function collectLinks(pageUrl, body) {
   const domainBaseUrl = urlObj.hostname;
   const domainRegExp = new RegExp(domainBaseUrl);
   const protocol = urlObj.protocol;
-  // Collect URLs from link tags (adding current domain to relative links)
+  // Collect URLs = require(link tags (adding current domain to relative links)
   const linkTagsObj = $('a[href]');
 
   for (let i = 0; i < linkTagsObj.length; i++) {
@@ -251,4 +251,4 @@ function collectLinks(pageUrl, body) {
   body = null;
 }
 
-export default crawlPages;
+module.exports = crawlPages;

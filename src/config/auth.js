@@ -1,7 +1,7 @@
 'use strict';
 
-import path from 'path';
-import fs from 'fs';
+const path = require('path');
+const fs = require('fs');
 let env = {};
 let envFile;
 
@@ -25,4 +25,4 @@ const configAuth = {
   postmark_key: process.env.postmark_key
 };
 
-export default configAuth;
+module.exports = configAuth;

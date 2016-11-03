@@ -9,7 +9,7 @@ logger = require('morgan');
 cookieParser = require('cookie-parser');
 bodyParser = require('body-parser');
 
-import router from './routes/index.js';
+const router = require('./routes/index.js');
 app = express();
 
 // view engine setup
