@@ -1,5 +1,5 @@
-import jwt from 'jsonwebtoken';
-import auth from '../config/auth.js';
+const jwt = require('jsonwebtoken');
+const auth = require('../config/auth.js');
 
 function createToken(req, res, next) {
   req.jwt = jwt.sign({action: 'crawl'},
@@ -35,4 +35,4 @@ function checkToken(req, res, next) {
   }
 }
 
-export {createToken, checkToken};
+module.exports = {createToken, checkToken};

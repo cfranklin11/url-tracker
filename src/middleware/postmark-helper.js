@@ -1,5 +1,5 @@
-import configAuth from '../config/auth.js';
-import postmark from 'postmark';
+const configAuth = require('../config/auth.js');
+const postmark = require('postmark');
 const {postmark_key, doc_id} = configAuth;
 const pmClient = new postmark.Client(postmark_key);
 
@@ -23,14 +23,31 @@ function sendNotification(req, res, next) {
         next();
       }
 
-      console.log('E-mail sent to: ');
+      const date = new Date();
+      console.log(date.toTimeString(), 'E-mail sent to: ');
       console.log(to);
+      const runningTime = convertToTime(req.timer, date);
+      console.log(`Total running time: ${runningTime}`);
       next();
     });
   } else {
-    console.log('No e-mail addresses');
+    const date = new Date();
+    console.log(date.toTimeString(), 'No e-mail addresses');
+    const runningTime = convertToTime(req.runTimer, date);
+    console.log(`Total running time: ${runningTime}`);
     next();
   }
 }
 
-export default sendNotification;
+function convertToTime(startTime, endTime) {
+  const timeDiff = endTime - startTime;
+  const rawSecs = timeDiff / 1000;
+  const secs = (Math.round(rawSecs % 6) / 10).toString();
+  const mins = Math.floor(rawSecs / 60).toString();
+  const revisedMins = /\d\.\d/.test(mins) ? '0' + mins : mins;
+  const revisedSecs = /\d\.\d/.test(secs) ? '0' + secs : secs;
+
+  return `${revisedMins}:${revisedSecs}`;
+}
+
+module.exports = sendNotification;

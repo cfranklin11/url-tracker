@@ -1,9 +1,10 @@
-import express from 'express';
+const express = require('express');
 const router = express.Router();
-import checkUrls from '../middleware/crawler.js';
-import getSpreadsheet from '../middleware/sheets-helper.js';
-import {createToken, checkToken} from '../middleware/jwt-helper.js';
-import sendNotification from '../middleware/postmark-helper.js';
+const crawlPages = require('../middleware/crawler.js');
+const {prepareToCrawl, processPageData} =
+  require('../middleware/sheets-helper.js');
+const {createToken, checkToken} = require('../middleware/jwt-helper.js');
+const sendNotification = require('../middleware/postmark-helper.js');
 
 router.get('/', function(req, res, next) {
   res.render('index', {
@@ -28,13 +29,13 @@ router.post('/api/token',
 // in Google Sheets, then send e-mail notification if there's new info
 router.post('/api/crawl',
   checkToken, // Verifies JWT
-  getSpreadsheet, // Reads existing info from Google Sheets
-  checkUrls, // Crawls website(s)
-  getSpreadsheet, // Writes new info to Google Sheets
+  prepareToCrawl, // Reads existing info = require(Google Sheets
+  crawlPages, // Crawls website(s)
+  processPageData, // Writes new info to Google Sheets
   sendNotification, // Sends e-mail notification
   function(req, res, next) {
     res.redirect('/');
   }
 );
 
-export default router;
+module.exports = router;
