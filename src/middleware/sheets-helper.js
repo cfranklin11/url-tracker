@@ -1,5 +1,4 @@
 const GoogleSpreadsheet = require('google-spreadsheet');
-// const heapdump = require('heapdump');
 const configAuth = require('../config/auth.js');
 
 const COL_COUNT = 2;
@@ -297,11 +296,6 @@ function moveNewUrls(info) {
 // a notification e-mail
 function getEmails(req, res, next) {
   const {googleSheets: {info}, notification} = req;
-
-  // heapdump.writeSnapshot((err, filename) => {
-  //   if (err) console.log(err);
-  //   console.log('dump written to', filename);
-  // });
 
   // Only send an e-mail if there are new URLs or broken links
   if (notification) {

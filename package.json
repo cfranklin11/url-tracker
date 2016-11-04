@@ -3,11 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node ./dist/bin/www",
-    "dev-start": "nodemon --watch dist ./dist/bin/www",
-    "dev": "npm run compile && npm run dev-start",
-    "compile": "babel --presets es2015,stage-2 -d dist/ src/ -s",
-    "clean": "rm -r --cached dist/* cp src/bin dist/"
+    "start": "node ./src/bin/www",
+    "dev": "nodemon --watch src ./src/bin/www"
   },
   "dependencies": {
     "body-parser": "~1.13.2",
@@ -17,20 +14,15 @@
     "ejs": "~2.3.3",
     "express": "~4.13.1",
     "google-spreadsheet": "^2.0.3",
-    "heapdump": "^0.3.7",
     "jsonwebtoken": "^7.0.1",
     "morgan": "~1.6.1",
-    "object-sizeof": "^1.1.1",
     "postmark": "^1.2.1",
     "request": "^2.72.0",
     "serve-favicon": "~2.3.0",
     "url-parse": "^1.1.1"
   },
   "devDependencies": {
-    "babel-cli": "^6.14.0",
     "babel-eslint": "^6.1.2",
-    "babel-preset-es2015": "^6.9.0",
-    "babel-preset-stage-2": "^6.11.0",
     "eslint": "^3.1.1",
     "eslint-config-google": "^0.6.0"
   }

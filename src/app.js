@@ -1,16 +1,12 @@
-'use strict';
-
-var express, path, logger, cookieParser, bodyParser, app;
-
-express = require('express');
-path = require('path');
+const express = require('express');
+const path = require('path');
 // favicon = require('serve-favicon');
-logger = require('morgan');
-cookieParser = require('cookie-parser');
-bodyParser = require('body-parser');
+const logger = require('morgan');
+const cookieParser = require('cookie-parser');
+const bodyParser = require('body-parser');
 
 const router = require('./routes/index.js');
-app = express();
+const app = express();
 
 // view engine setup
 app.set('views', path.join(__dirname, '../views'));

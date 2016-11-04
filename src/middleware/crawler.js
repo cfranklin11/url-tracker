@@ -4,7 +4,6 @@ const request = require('request');
 const cheerio = require('cheerio');
 const urlParse = require('url-parse');
 const sizeof = require('object-sizeof');
-// const heapdump = require('heapdump');
 
 // Arrays for keeping track of page info as the crawler iterates through
 // pages
@@ -48,11 +47,6 @@ function visitPages(req, res, next) {
       const currentCount = loopCount;
 
       if (loopCount % 500 === 0) {
-        // heapdump.writeSnapshot((err, filename) => {
-        //   if (err) console.log(err);
-        //   console.log('dump written to', filename);
-        // });
-
         promises[promises.length] =
           timeout(thisPageToVisit, currentCount)
             .then((url, index) => {
